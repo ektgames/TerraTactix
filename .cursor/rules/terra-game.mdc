@@ -1,0 +1,263 @@
+---
+description: Core development rules for the Terra 2D mobile territory conquest puzzle game
+alwaysApply: true
+---
+
+# Terra Game — Cursor Development Rules
+
+## 1. PROJECT OVERVIEW
+Unity 6 2D mobile single-player game on a completely fictional planet.
+Start with a small territory, open the 2D world map, select connected territories,
+attack through a falling-block puzzle, complete one or multiple expeditions,
+earn separate Gold and Score, spend Hearts to enter battles, use Gold in the Shop,
+spin the Daily Wheel, complete Missions and Achievements, and view an online global leaderboard.
+The game is NOT multiplayer. Gameplay must remain playable offline.
+Online services are an additional layer and must never be tightly coupled to core gameplay.
+
+## 2. ENGINE
+Use Unity 6, C#, 2D, Unity Input System, TextMeshPro, ScriptableObjects for static data,
+JSON local saves, and scene-based architecture. Default to Built-in Render Pipeline
+unless explicitly requested otherwise. Explain pipeline migrations before changing settings.
+Do not introduce URP into a Built-in project.
+Do not introduce DOTS, ECS, Addressables, large systems or third-party packages without request.
+
+## 3. CORE ARCHITECTURE
+Prefer modular systems, not giant managers. Responsibilities belong to GameBootstrap,
+GameManager, GameStateManager, SceneLoader, AudioManager, SaveManager, EconomyManager,
+ExpeditionManager, BattleManager, PuzzleGameManager, MissionManager, AchievementManager,
+DailyWheelManager, ShopManager, LeaderboardManager, and UIManager where needed.
+Before adding a manager: search the project, identify related functionality, reuse/extend
+the existing owner, and only add a system for a genuinely different responsibility.
+Never duplicate managers (EconomyManager2, NewGameManager, BattleManagerNew, SaveManagerV2).
+
+## 4. SINGLE RESPONSIBILITY
+Economy owns Gold, Hearts, Max Hearts and Attack Speed, not UI, navigation, puzzle, audio or missions.
+PuzzleGrid owns cells, occupancy and placement; clearing is delegated to its dedicated system.
+UI displays data and sends actions. Core game rules never belong in UI classes.
+
+## 5. SCRIPTABLEOBJECT RULES
+ScriptableObjects contain immutable configuration, never mutable player progress.
+Examples: RegionData, ContinentData, PuzzlePieceData, PuzzleLevelData, PuzzleDifficultyData,
+CampaignData, ShopProductData, WheelSegmentData, MissionData, AchievementData, BalanceConfiguration.
+Never assign RegionData.isCaptured. Runtime ownership belongs to WorldProgressData/save models.
+
+## 6. DATA-DRIVEN DESIGN
+Rewards, heart costs, targets, time limits, fall speed, difficulty, campaign counts,
+prices, upgrades, combos and merge values belong in configuration.
+Use RewardService.ApplyReward; avoid unrelated gold += 50 and magic gameplay numbers.
+
+## 7. WORLD MAP
+Entirely fictional continents, regions, biomes, rivers, mountains, lakes, seas, islands,
+volcanic, crystal and mystery areas. Biomes: Grassland, Forest, Desert, Ice, Volcanic,
+Crystal, Toxic, Ocean/Island. States: Locked, Available, Attacking, PartiallyCaptured, Captured.
+Static information and runtime ownership must remain separate.
+
+## 8. REGION SYSTEM
+Regions require configurable 1, 2, 5, 10 or future larger expedition counts.
+Success increments campaign progress; failure never does. Capture when progress >= required.
+Only configured nextRegionIds unlock; never unlock unrelated regions automatically.
+
+## 9. BATTLE FLOW
+WORLD MAP -> REGION SELECT -> ATTACK -> BATTLE PREPARATION -> EXPEDITION -> PUZZLE
+-> SUCCESS/FAILURE -> CAMPAIGN RESULT -> REGION PROGRESS -> WORLD MAP.
+BattleSessionData transports regionId, campaignIndex, difficulty, targetScore and timeLimit.
+No static global battle configuration. Do not bypass flow without an explicit reason.
+
+## 10. HEART SYSTEM
+Start with 5 Hearts and 5 Max Hearts; entry normally costs 1 Heart.
+CanPlay/ConsumeHeart belong to EconomyManager. UI never changes heart values directly.
+No refund after failure unless design changes explicitly.
+
+## 11. GOLD SYSTEM
+Gold comes from battles, captures, wheel, missions and achievements.
+Spend on hearts, capacity and attack upgrades. Gold cannot go negative.
+Every change passes through EconomyManager/RewardService; no player.gold += from UI.
+
+## 12. REWARD SYSTEM
+RewardService applies Gold, Hearts, Attack Speed, Max Hearts and future rewards centrally.
+Use unique transaction/result IDs for duplicate protection. Battle results, captures,
+wheel rewards, mission claims and achievement claims must never pay twice.
+Persist progress and reward transaction together; roll back failed writes.
+
+## 13. PUZZLE SYSTEM
+Falling-block inspiration, not necessarily classic Tetris. Prototype: configurable 8x12,
+approximately 90 seconds and approximately 1000 target points.
+Shapes: Single, Horizontal 2/3, Vertical 2/3, Square 2x2, L, Reverse L, T, Z, Reverse Z.
+Separate PuzzleGrid, PuzzlePiece, PieceSpawner, PieceController, GhostPieceController,
+MergeSystem, LineClearSystem, ScoreSystem, ComboSystem, BattleTimer and ObjectiveSystem.
+
+## 14. MERGE SYSTEM
+Same-type/same-level blocks may combine: 1+1=2, 2+2=3, 3+3=4.
+Progression is configurable and lives in MergeSystem, not PuzzleGrid.
+Merges can produce combo chains, score bonuses, visuals, audio and haptics.
+
+## 15. DIFFICULTY
+Easy, Normal, Hard, VeryHard, Extreme; data-driven through one central resolver.
+May affect fall speed, time, target, spawn rate, variety, board conditions,
+special rules and score multiplier. Avoid sudden spikes and scattered calculations.
+
+## 16. PLAYER ATTACK SPEED
+Default 1.0, upgradeable, bounded through configuration. Its established puzzle/battle
+effect must remain explicit and must not trivialize late-game difficulty.
+
+## 17. SHOP
+Gold-only purchases; no real-money IAP unless requested.
+Initial products: +1 Heart, Heart Pack, Max Heart Upgrade, Attack Speed Upgrade.
+Static products belong in ShopProductData or central static configuration.
+Purchase levels belong to ShopProgressData, never ScriptableObjects.
+
+## 18. DAILY WHEEL
+Check eligibility, determine reward centrally before animation, animate to exactly that
+segment, apply through RewardService, save transaction, then display result.
+Use central RNG and TimeService. Do not scatter DateTime.Now. Interrupted spins must recover.
+
+## 19. MISSIONS
+Event-driven via BattleCompleted, BattleWon, RegionCaptured, GoldEarned, GoldSpent,
+MergePerformed, LineCleared, ComboReached, DailySpinCompleted and ShopPurchaseCompleted.
+MissionManager listens; never distribute mission-specific if statements throughout gameplay.
+
+## 20. ACHIEVEMENTS
+Permanent saved progression: first victory, 10 captures, 10k/100k score, 100 merges,
+10x combo, Hard victory and 10 spins. Rewards use RewardService; claims are duplicate-safe.
+
+## 21. SCORE
+Score powers progression, leaderboard, achievements and records; Gold powers economy.
+They are distinct. Battle scoring belongs to ScoreSystem, never direct UI mutation.
+
+## 22. ONLINE ARCHITECTURE
+Gameplay remains offline-capable. Use IPlayerService, ILeaderboardService, ICloudSaveService.
+Development can use MockPlayerService and MockLeaderboardService.
+Never couple gameplay to a backend. Support future Game Center, Play Games or custom providers.
+
+## 23. LEADERBOARD
+Global Top 100 plus player's own rank, name, score and captured regions.
+Show own row even outside Top 100. Leaderboard must never block offline gameplay.
+Mock data must be visibly labeled and never presented as real global players.
+
+## 24. SAVE SYSTEM
+Versioned JSON with PlayerData, WorldProgress, EconomyData, ShopProgressData,
+DailyWheelProgressData, MissionProgressData, AchievementProgressData and SettingsData.
+Validate data, handle missing fields, old versions, corruption, migration and duplicate rewards.
+Never destroy saves because fields are missing; preserve incompatible/corrupt originals.
+
+## 25. UI RULES
+Mobile-first, touch-friendly, responsive, safe-area aware, TextMeshPro.
+Canvas Scaler uses Scale With Screen Size. Respect notch, Dynamic Island, home indicator
+and aspect ratios. Large touch areas; state must never rely only on color.
+
+## 26. INPUT
+Use Unity Input System and shared input abstraction for mouse and touch.
+Map: one-finger pan, two-finger pinch, tap selection. Battle: drag/swipe movement,
+rotation button, optional downward swipe/drop. UI takes priority over gameplay.
+
+## 27. INPUT PRIORITY
+Modal Popup > UI > Gameplay > World Map. Block gameplay under modal popups.
+UI gestures must not leak to gameplay/map. Guard double starts, purchases, spins and claims.
+
+## 28. SCENE ARCHITECTURE
+Boot, MainMenu, WorldMap, Battle, Shop, DailyWheel, Leaderboard.
+SceneLoader owns transitions. Avoid unnecessary scenes and tight inter-scene coupling.
+
+## 29. AUDIO
+AudioManager owns Music, SFX, UI and Ambient cues; respect musicEnabled/soundEnabled.
+Do not play clips directly from many unrelated scripts.
+
+## 30. VFX AND GAME FEEL
+Modular event-driven feedback: unlock sparkle, selection glow, capture animation,
+placement, merge, combo, line clear, score popup, timer warning, victory and rewards.
+Keep VFX implementation outside core rules.
+
+## 31. PERFORMANCE
+Mobile constraints: pooling, reusable UI, events, few Update loops, cached references,
+efficient collections, small textures and limited particles. Avoid per-frame instantiate/destroy,
+scene searches, hot-loop LINQ, large allocations and unnecessary Canvas rebuilds.
+Optimize where useful without sacrificing maintainability.
+
+## 32. NULL SAFETY
+Inspect existing references, serialized fields, prefabs, scenes and dependencies before changes.
+Never silently replace references. Validate required references and report actionable errors.
+
+## 33. EVENT SUBSCRIPTIONS
+Each subscription needs an unsubscribe path (OnEnable/OnDisable or explicit disposal).
+Avoid duplicates during scene transitions, UI toggles, battle restarts, save/load,
+wheel spins, missions and leaderboard changes.
+
+## 34. DEBUG TOOLS
+Optional add currency/hearts, unlock/capture/reset, set score/difficulty/attack,
+skip campaign and complete mission tools must be development-only and absent from production.
+
+## 35. CODE STYLE
+Clear names, private/serialized fields, interfaces for replaceable services, enums,
+small methods, meaningful comments and consistent namespaces. Avoid giant classes,
+cryptic names, duplication, magic strings/numbers and excessive comments.
+
+## 36. BEFORE EDITING ANY FILE
+Read relevant code, search usages, identify dependencies, make the smallest safe change,
+preserve functionality, check compilation and related scene/prefab/data references.
+Do not rewrite a system when a small change suffices.
+
+## 37. NEVER BREAK EXISTING SYSTEMS
+Do not delete working functionality, replace architecture unnecessarily, rename unchecked
+public APIs, remove serialized fields without migration, change saves without migration,
+or remove scene objects without reference checks. Explain necessary refactors; preserve compatibility.
+
+## 38. TESTING
+Check compilation, null safety, references, save/load, UI/input/mobile and regressions.
+Verify Start -> Map -> Region -> Attack -> Spend Heart -> Puzzle -> Win -> Reward
+-> Campaign -> Capture -> Unlock -> Save -> Reload. Also verify failure paths.
+
+## 39. MOBILE FIRST
+Consider iPhone, Android, portrait/aspect-ratio layouts, safe areas, touch, performance,
+memory, battery, app pause/resume and foreground/background. Never assume desktop-only input.
+
+## 40. FUTURE EXTENSIBILITY
+Allow more regions/continents/biomes/pieces, boss/treasure/mystery/story regions,
+shop items, missions, seasons, daily challenges, backends, cloud save, Game Center,
+Play Games, localization and platforms. Do not implement future features without request.
+
+## 41. SPECIAL PUZZLE PIECES
+Future Bomb, Lightning, Freeze, Wild, Multiplier, Golden, Time Bonus, Score Bonus,
+Shield, Hammer, Undo and Extra Move must use extensible data-driven systems.
+Never hardcode each into PuzzleGameManager.
+
+## 42. ERROR HANDLING
+Clear, actionable, contextual errors, e.g. BattleManager: BattleSessionData is missing.
+Never silently swallow important exceptions or spam the console every frame.
+
+## 43. LOGGING
+Useful development logs such as expedition 2/5 completed; no noisy Update logs.
+Production logging is limited.
+
+## 44. SECURITY / ANTI-CHEAT READINESS
+Client data is untrusted for online services. Future leaderboard results are server-authoritative.
+Structured submission: submissionId, playerId, score, regionId, campaignIndex,
+difficulty, duration, timestamp. Never expose arbitrary leaderboard score assignment.
+Do not add actual backend/anti-cheat without request.
+
+## 45. DEVELOPMENT PROCESS
+Inspect architecture, identify affected systems, reuse owners, change necessary files,
+keep modules small, compile, verify references, test relevant flow and report exact changes.
+Do not blindly generate dozens of files.
+
+## 46. AGENT BEHAVIOR
+Inspect first, preserve working functionality, validate references, report changed files,
+known limitations and compile/test status. Do not invent existing classes or files,
+duplicate systems, rewrite unrelated code, remove functionality without authorization,
+add unnecessary packages/backends/IAP/ads or silently change core design.
+
+## 47. GAME DESIGN PRIORITY
+Existing working gameplay > established architecture > player experience > mobile usability
+> performance > extensibility > implementation convenience. Do not change rules for convenience.
+
+## 48. CURRENT PRODUCT VISION
+"Explore a cute fictional planet, expand your territory, and conquer new lands through
+satisfying falling-block puzzle battles."
+Cute, colorful, clean, modern, friendly, slightly sci-fi, lighthearted, polished mobile casual.
+Avoid dark military realism, complex/generic fantasy UI, aggressive VFX and clutter.
+Product name: TerraTactix. Reference layout: main menu, large world map and block-battle screen.
+Keep many territories and configurable multiple expeditions for a long campaign.
+
+## 49. IMPORTANT
+Explicit user changes override defaults. Before major architecture changes explain what,
+why, affected systems, save compatibility and scene/prefab changes. Never rewrite silently.
+Do not treat unconfirmed assistant proposals as user approvals.

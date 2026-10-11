@@ -1,0 +1,14 @@
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Ll]ogs/
+[Bb]uilds/
+[Uu]ser[Ss]ettings/
+.terra-validation/
+.vs/
+*.csproj
+*.sln
+*.user
+.env
+*.keystore
+*.jks
