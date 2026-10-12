@@ -7,6 +7,7 @@ namespace TerraTactix.Battle
         public string difficulty;
         public int targetScore;
         public float timeLimit;
+        public float boardComplexity;
         public float fallInterval;
         public float scoreMultiplier = 1f;
         public int shapeVariety = 11;

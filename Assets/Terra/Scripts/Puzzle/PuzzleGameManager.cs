@@ -22,6 +22,7 @@ namespace TerraTactix.Puzzle
         BattleSessionData session;
         int colorCount = 5;
         bool resolving;
+        bool protectingResolution;
         Image[,] cells;
         TMP_Text[,] marks;
         float[,] flashes;
@@ -79,7 +80,9 @@ namespace TerraTactix.Puzzle
 
             grid = new PuzzleGrid(balance.gridWidth, balance.gridHeight);
             session.startedUnscaled = Time.unscaledTime;
-            colorCount = ColorsFor(session);
+            // Butun tas renkleri ilk bolumden itibaren oyundadir. Zorluk renkleri
+            // kilitleyerek degil, dizilimi karmasiklastirip sureyi azaltarak artar.
+            colorCount = PieceCatalog.Colors.Length;
             score = new ScoreSystem();
             combo = new ComboSystem();
             timer = new BattleTimer(session.timeLimit);
@@ -216,7 +219,9 @@ namespace TerraTactix.Puzzle
             if (!CanControl())
                 return;
 
-            timer.Tick(Time.deltaTime);
+            // Takas, dusme ve otomatik kurtarma animasyonlari oyuncunun suresini yemez.
+            if (!protectingResolution)
+                timer.Tick(Time.deltaTime);
             if (timer.Expired)
             {
                 Finish(false, Locale.T("Süre bitti", "Time is up"));
@@ -244,36 +249,16 @@ namespace TerraTactix.Puzzle
             return playing && !ended && grid != null && !GameBootstrap.Instance.State.ModalOpen;
         }
 
-        static int ColorsFor(BattleSessionData session)
-        {
-            switch (session.difficulty)
-            {
-                case "Easy": return 3;
-                case "Normal": return 4;
-                case "Hard": return 5;
-                default: return 6;
-            }
-        }
-
         int MinMoves()
         {
-            switch (session.difficulty)
-            {
-                case "Easy": return 8;
-                case "Normal": return 5;
-                case "Hard": return 4;
-                default: return 3;
-            }
+            return Mathf.RoundToInt(Mathf.Lerp(10f, 3f, Mathf.Clamp01(session.boardComplexity)));
         }
 
         void FillBoard()
         {
-            for (var attempt = 0; attempt < 24; attempt++)
+            for (var attempt = 0; attempt < 36; attempt++)
             {
-                if (colorCount <= 4)
-                    DealClustered();
-                else
-                    DealBalanced();
+                DealProgressive();
                 if (!HasMatch() && CountMoves() >= MinMoves())
                     return;
             }
@@ -283,6 +268,32 @@ namespace TerraTactix.Puzzle
             if (!HasMove())
                 ForcePlayable();
             ZeroSlides();
+        }
+
+        void DealProgressive()
+        {
+            DealClustered();
+            var total = grid.Width * grid.Height;
+            var complexity = Mathf.Clamp01(session.boardComplexity);
+            var swaps = Mathf.RoundToInt(Mathf.Lerp(3f, total * 2f, Mathf.Pow(complexity, 1.35f)));
+            for (var i = 0; i < swaps; i++)
+            {
+                var ax = Random.Range(0, grid.Width);
+                var ay = Random.Range(0, grid.Height);
+                var bx = Random.Range(0, grid.Width);
+                var by = Random.Range(0, grid.Height);
+                var a = grid.Get(ax, ay);
+                var b = grid.Get(bx, by);
+                if (a.typeId == b.typeId)
+                    continue;
+                grid.Set(ax, ay, b);
+                grid.Set(bx, by, a);
+                if (HasMatch())
+                {
+                    grid.Set(ax, ay, a);
+                    grid.Set(bx, by, b);
+                }
+            }
         }
 
         void DealClustered()
@@ -417,11 +428,13 @@ namespace TerraTactix.Puzzle
         IEnumerator AnimatedSwap(Vector2Int a, Vector2Int b)
         {
             var token = ++motion;
+            protectingResolution = TryMoveProbe(a.x, a.y, b.x, b.y);
             resolving = true;
             NoteActivity();
             yield return MovePair(a, b, token, 0.12f);
             if (ended || token != motion)
             {
+                protectingResolution = false;
                 resolving = false;
                 yield break;
             }
@@ -441,11 +454,13 @@ namespace TerraTactix.Puzzle
                     ZeroSlides();
                 }
 
+                protectingResolution = false;
                 resolving = false;
                 yield break;
             }
 
             yield return ResolveRoutine();
+            protectingResolution = false;
             resolving = false;
         }
 
