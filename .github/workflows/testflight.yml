@@ -79,6 +79,10 @@ jobs:
 
           PROJECT_DIR="$(dirname "$XCODE_PROJECT")"
           INFO_PLIST="$PROJECT_DIR/Info.plist"
+
+          # Artifact aktarımı çalıştırma izinlerini korumaz.
+          find "$PROJECT_DIR" -type f -name '*.sh' -exec chmod +x {} +
+
           /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $APP_VERSION" "$INFO_PLIST"
           /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $GITHUB_RUN_NUMBER" "$INFO_PLIST"
 
