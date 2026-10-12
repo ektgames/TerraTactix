@@ -671,6 +671,63 @@ namespace TerraTactix.Puzzle
                 if (ForceLine())
                     return;
             }
+
+            GuaranteeProgress();
+        }
+
+        void GuaranteeProgress()
+        {
+            var remaining = OccupiedCount();
+            if (remaining <= 0)
+                return;
+            if (remaining < 3 || (grid.Width < 3 && grid.Height < 3))
+            {
+                ClearOccupied();
+                return;
+            }
+
+            var color = DominantColor();
+            var pieces = new List<PuzzleCell>(remaining);
+            var origins = new List<Vector2Int>(remaining);
+            for (var y = 0; y < grid.Height; y++)
+            {
+                for (var x = 0; x < grid.Width; x++)
+                {
+                    var cell = grid.Get(x, y);
+                    if (!cell.occupied)
+                        continue;
+                    pieces.Add(cell);
+                    origins.Add(new Vector2Int(x, y));
+                    grid.Clear(x, y);
+                }
+            }
+
+            ZeroSlides();
+            var horizontal = grid.Width >= 3;
+            var size = CellSize();
+            for (var i = 0; i < pieces.Count; i++)
+            {
+                var target = horizontal
+                    ? new Vector2Int(i % grid.Width, i / grid.Width)
+                    : new Vector2Int(i / grid.Height, i % grid.Height);
+                grid.Set(target.x, target.y, pieces[i]);
+                slide[target.x, target.y] = new Vector2(
+                    (origins[i].x - target.x) * size.x,
+                    (origins[i].y - target.y) * size.y);
+            }
+
+            for (var i = 0; i < 3; i++)
+            {
+                var target = horizontal
+                    ? new Vector2Int(i, 0)
+                    : new Vector2Int(0, i);
+                SetType(target.x, target.y, color);
+            }
+
+            // Bu noktada en az üç taş kesin eşleşir. Beklenmeyen bir durumda
+            // oyuncuyu kilitlemek yerine kalan taşları tamamlanmış say.
+            if (!HasMatch() && !HasMove())
+                ClearOccupied();
         }
 
         void FoldShortColors(int protectX, int protectY)
