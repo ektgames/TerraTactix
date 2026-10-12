@@ -11,15 +11,10 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  testflight:
-    name: iOS TestFlight
-    runs-on: macos-26-intel
-    timeout-minutes: 120
-
-    env:
-      APPLE_TEAM_ID: G757T8S7HV
-      IOS_BUNDLE_ID: com.ektgames.terratactix
-      APP_VERSION: "1.0"
+  unity-build:
+    name: Build Unity iOS project
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
 
     steps:
       - name: Checkout repository
@@ -45,6 +40,32 @@ jobs:
           buildsPath: build
           buildName: TerraTactix
           versioning: None
+          dockerWorkspacePath: /Users/runner/work/TerraTactix/TerraTactix
+
+      - name: Upload generated Xcode project
+        uses: actions/upload-artifact@v4
+        with:
+          name: terratactix-xcode
+          path: build
+          retention-days: 1
+
+  testflight:
+    name: Sign and upload to TestFlight
+    needs: unity-build
+    runs-on: macos-26-intel
+    timeout-minutes: 45
+
+    env:
+      APPLE_TEAM_ID: G757T8S7HV
+      IOS_BUNDLE_ID: com.ektgames.terratactix
+      APP_VERSION: "1.0"
+
+    steps:
+      - name: Download generated Xcode project
+        uses: actions/download-artifact@v4
+        with:
+          name: terratactix-xcode
+          path: build
 
       - name: Locate Xcode project and set build number
         shell: bash
