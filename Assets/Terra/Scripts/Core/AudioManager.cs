@@ -86,11 +86,17 @@ namespace TerraTactix.Core
         public void SetSceneMusic(string sceneName)
         {
             Ensure();
-            var next = sceneName == SceneNames.MainMenu
-                ? menuMusicClip
-                : sceneName == SceneNames.Battle
-                    ? battleMusicClip
-                    : null;
+            SelectMusic(menuMusicClip);
+        }
+
+        public void StartBattleMusic()
+        {
+            Ensure();
+            SelectMusic(battleMusicClip);
+        }
+
+        void SelectMusic(AudioClip next)
+        {
 
             if (selectedMusicClip == next)
             {

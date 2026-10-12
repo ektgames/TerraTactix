@@ -93,6 +93,7 @@ namespace TerraTactix.UI
             {
                 GameBootstrap.Instance.State.SetModal(false);
                 UnityEngine.Object.Destroy(blocker.gameObject);
+                GameBootstrap.Instance.Audio.StartBattleMusic();
                 game.Begin(board.rectTransform, score, timer, null, board.rectTransform);
             }, 24f);
             UiFactory.Button(card.transform, "Leave", Locale.T("Vazgeç", "Leave"), UiTheme.Yellow, new Vector2(0.22f, 0.03f), new Vector2(0.78f, 0.115f), () =>
