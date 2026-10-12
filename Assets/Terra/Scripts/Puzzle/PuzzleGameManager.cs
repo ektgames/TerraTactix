@@ -78,7 +78,10 @@ namespace TerraTactix.Puzzle
                 return;
             }
 
-            grid = new PuzzleGrid(balance.gridWidth, balance.gridHeight);
+            var landscape = boardRect.rect.width >= boardRect.rect.height;
+            var narrow = Mathf.Min(balance.gridWidth, balance.gridHeight);
+            var wide = Mathf.Max(balance.gridWidth, balance.gridHeight);
+            grid = new PuzzleGrid(landscape ? wide : narrow, landscape ? narrow : wide);
             session.startedUnscaled = Time.unscaledTime;
             // Butun tas renkleri ilk bolumden itibaren oyundadir. Zorluk renkleri
             // kilitleyerek degil, dizilimi karmasiklastirip sureyi azaltarak artar.

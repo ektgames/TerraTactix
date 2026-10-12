@@ -36,6 +36,7 @@ namespace TerraTactix.UI
                 scenery.type = UnityEngine.UI.Image.Type.Simple;
                 scenery.preserveAspect = true;
                 scenery.raycastTarget = false;
+                scenery.gameObject.AddComponent<CoverFit>().Apply();
             }
             var rim = UiFactory.Image(parent, "BoardRim", new Color(0.98f, 0.82f, 0.32f, 1f), false, new Vector2(0.31f, 0.03f), new Vector2(0.69f, 0.9f));
             rim.raycastTarget = false;
@@ -43,8 +44,9 @@ namespace TerraTactix.UI
             var frame = parent.gameObject.AddComponent<BoardFrame>();
             frame.Rim = rim.rectTransform;
             frame.Board = board.rectTransform;
-            frame.Columns = 8;
-            frame.Rows = 12;
+            frame.StretchToViewport = Screen.width >= Screen.height;
+            frame.Columns = frame.StretchToViewport ? 12 : 8;
+            frame.Rows = frame.StretchToViewport ? 8 : 12;
             frame.Fit();
 
             var bar = UiFactory.Image(parent, "TopBar", new Color(0.05f, 0.1f, 0.18f, 0.55f), false, new Vector2(0f, 0.9f), Vector2.one);
@@ -142,6 +144,7 @@ namespace TerraTactix.UI
         public RectTransform Board;
         public int Columns = 8;
         public int Rows = 12;
+        public bool StretchToViewport;
 
         void Start()
         {
@@ -166,6 +169,23 @@ namespace TerraTactix.UI
             var marginY = Mathf.Max(12f, rect.height * 0.015f);
             var availableWidth = Mathf.Max(1f, rect.width - marginX * 2f);
             var availableHeight = Mathf.Max(1f, rect.height - hud - marginY * 2f);
+            if (StretchToViewport)
+            {
+                // Landscape battles use the whole safe width; gem images keep their own aspect ratio.
+                var stretchX0 = marginX / rect.width;
+                var stretchY0 = marginY / rect.height;
+                var stretchX1 = 1f - stretchX0;
+                var stretchTop = (marginY + availableHeight) / rect.height;
+                Place(Board, stretchX0, stretchY0, stretchX1, stretchTop);
+                if (Rim != null)
+                {
+                    var stretchPx = 6f / rect.width;
+                    var stretchPy = 6f / rect.height;
+                    Place(Rim, stretchX0 - stretchPx, stretchY0 - stretchPy, stretchX1 + stretchPx, stretchTop + stretchPy);
+                }
+                return;
+            }
+
             var aspect = Mathf.Max(1, Columns) / (float)Mathf.Max(1, Rows);
             var boardWidth = availableHeight * aspect;
             var boardHeight = availableHeight;

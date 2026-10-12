@@ -69,7 +69,7 @@ namespace TerraTactix.Data
                         displayName = id == "baslangic" ? "Lunarya Adası" : NameFor(biome, biomeIndex),
                         biome = biome,
                         requiredCampaigns = 20,
-                        startingState = RegionState.Available,
+                        startingState = id == "baslangic" ? RegionState.Available : RegionState.Locked,
                         mapAnchor = CellAnchor(x, y),
                         tint = TintFor(biome),
                         routeDepth = Mathf.RoundToInt(rating),
@@ -83,11 +83,15 @@ namespace TerraTactix.Data
             {
                 for (var x = 0; x < Columns; x++)
                 {
-                    var links = new List<string>(4);
-                    AddLink(grid, links, x - 1, y);
-                    AddLink(grid, links, x + 1, y);
-                    AddLink(grid, links, x, y - 1);
-                    AddLink(grid, links, x, y + 1);
+                    var links = new List<string>(8);
+                    for (var offsetY = -1; offsetY <= 1; offsetY++)
+                    {
+                        for (var offsetX = -1; offsetX <= 1; offsetX++)
+                        {
+                            if (offsetX != 0 || offsetY != 0)
+                                AddLink(grid, links, x + offsetX, y + offsetY);
+                        }
+                    }
                     grid[x, y].nextRegionIds = links.ToArray();
                     result.Add(grid[x, y]);
                 }
@@ -241,7 +245,7 @@ namespace TerraTactix.Data
                 list.Add(new RegionProgressEntry
                 {
                     regionId = definition.id,
-                    state = RegionState.Available,
+                    state = definition.startingState,
                     campaignProgress = 0
                 });
             }

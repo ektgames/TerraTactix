@@ -50,7 +50,7 @@ namespace TerraTactix.UI
             var title = UiFactory.Label(info.transform, string.Empty, 26f, UiTheme.Ink, new Vector2(0.06f, 0.78f), new Vector2(0.94f, 0.96f));
             var body = UiFactory.Label(info.transform, string.Empty, 20f, UiTheme.Muted, new Vector2(0.06f, 0.34f), new Vector2(0.94f, 0.76f), TextAlignmentOptions.Top);
             var action = UiFactory.Button(info.transform, "Explore", Locale.T("Keşfet", "Explore"), UiTheme.Green, new Vector2(0.1f, 0.16f), new Vector2(0.9f, 0.3f), () => { }, 26f);
-            UiFactory.Label(info.transform, Locale.T("Rotanı özgürce seç. Zor adalar daha çok altın ve puan verir.", "Choose your own route. Harder islands award more gold and score."), 16f, UiTheme.Muted, new Vector2(0.06f, 0.02f), new Vector2(0.94f, 0.14f));
+            UiFactory.Label(info.transform, Locale.T("Bir adayı fethedince ona temas eden adalar açılır. Zor adalar daha çok ödül verir.", "Capturing an island opens the islands touching it. Harder islands give better rewards."), 16f, UiTheme.Muted, new Vector2(0.06f, 0.02f), new Vector2(0.94f, 0.14f));
             var captured = GameBootstrap.Instance.Expeditions.CapturedCount();
             UiFactory.Label(parent, Locale.T($"{captured}/{RegionCatalog.All.Length} bölge fethedildi. Kaydır, tekerlek veya iki parmakla yakınlaştır.", $"{captured}/{RegionCatalog.All.Length} regions captured. Drag, scroll, or pinch to zoom."), 16f, UiTheme.Ink, new Vector2(0.02f, 0.01f), new Vector2(0.68f, 0.055f), TextAlignmentOptions.Left);
 
@@ -157,6 +157,18 @@ namespace TerraTactix.UI
             ringImage.raycastTarget = false;
             ring.SetSiblingIndex(land.GetSiblingIndex());
             controller.RegisterOutline(id, ring.gameObject);
+            var progress = GameBootstrap.Instance.Expeditions.GetProgress(id);
+            if (progress != null && progress.state == RegionState.Captured)
+            {
+                var badge = Piece(land, "CapturedBadge", new Vector2(land.sizeDelta.x * 0.28f, land.sizeDelta.y * 0.27f), 88f, false);
+                var badgeImage = badge.gameObject.AddComponent<Image>();
+                badgeImage.sprite = UiFactory.Knob;
+                badgeImage.color = new Color(0.10f, 0.72f, 0.32f, 0.98f);
+                badgeImage.raycastTarget = false;
+                var check = UiFactory.Label(badge, "✓", 48f, Color.white, Vector2.zero, Vector2.one);
+                check.fontStyle = FontStyles.Bold;
+                check.raycastTarget = false;
+            }
             if (clear)
                 return;
 
@@ -182,8 +194,11 @@ namespace TerraTactix.UI
             plate.sprite = UiFactory.Rounded;
             plate.type = Image.Type.Sliced;
             plate.raycastTarget = false;
-            plate.color = new Color(0.05f, 0.09f, 0.18f, 0.94f);
-            var labelText = Locale.Place(definition.id, definition.displayName) + "\n" + DifficultyLabel(definition);
+            var progress = GameBootstrap.Instance.Expeditions.GetProgress(definition.id);
+            var captured = progress != null && progress.state == RegionState.Captured;
+            plate.color = captured ? new Color(0.08f, 0.42f, 0.22f, 0.96f) : new Color(0.05f, 0.09f, 0.18f, 0.94f);
+            var stateMark = captured ? Locale.T("✓ Fethedildi • ", "✓ Captured • ") : string.Empty;
+            var labelText = Locale.Place(definition.id, definition.displayName) + "\n" + stateMark + DifficultyLabel(definition);
             var label = UiFactory.Label(banner, labelText, 20f, Color.white, new Vector2(0.04f, 0.05f), new Vector2(0.96f, 0.95f));
             label.font = UiFactory.Cute;
             label.fontStyle = FontStyles.Bold;
@@ -259,6 +274,13 @@ namespace TerraTactix.UI
             {
                 body.text = Locale.T("Bu toprak sisin altında.\nKomşu bölge fethedilince görünür olur.", "This land is under the fog.\nIt appears when a neighbor is captured.");
                 actionLabel.text = Locale.T("Sis", "Fog");
+                return;
+            }
+
+            if (progress.state == RegionState.Captured)
+            {
+                body.text = $"{Locale.Biome(definition.biome)} • {WorldMapView.DifficultyLabel(definition)}\n{Locale.T("Bu ada fethedildi.", "This island is captured.")}\n{Locale.T("Fethedilen adalar tekrar oynanamaz.", "Captured islands cannot be played again.")}";
+                actionLabel.text = Locale.T("Fethedildi", "Captured");
                 return;
             }
 

@@ -23,31 +23,48 @@ namespace TerraTactix.World
             if (world == null || world.regions == null)
                 return;
 
-            var opened = false;
+            var changed = false;
             for (var i = 0; i < RegionCatalog.All.Length; i++)
             {
                 var definition = RegionCatalog.All[i];
                 var progress = GetProgress(definition.id);
                 if (progress == null)
                     continue;
-                // Harita rota secimini oyuncuya birakir; eski kayitlardaki kilitli
-                // adalar da veri kaybi olmadan acik duruma tasinir.
-                if (progress.state == RegionState.Locked)
+
+                if (progress.state == RegionState.Captured)
                 {
-                    progress.state = RegionState.Available;
-                    opened = true;
-                }
-                if (progress.state == RegionState.Captured && progress.campaignProgress < definition.requiredCampaigns)
-                {
-                    progress.campaignProgress = definition.requiredCampaigns;
-                    opened = true;
+                    if (progress.campaignProgress < definition.requiredCampaigns)
+                    {
+                        progress.campaignProgress = definition.requiredCampaigns;
+                        changed = true;
+                    }
+                    continue;
                 }
 
-                if (progress.state == RegionState.Captured && UnlockNext(definition))
-                    opened = true;
+                var desired = progress.campaignProgress > 0 ? RegionState.PartiallyCaptured : RegionState.Locked;
+                if (progress.state != desired)
+                {
+                    progress.state = desired;
+                    changed = true;
+                }
             }
 
-            if (opened)
+            var starter = GetProgress("baslangic");
+            if (starter != null && starter.state == RegionState.Locked)
+            {
+                starter.state = RegionState.Available;
+                changed = true;
+            }
+
+            for (var i = 0; i < RegionCatalog.All.Length; i++)
+            {
+                var definition = RegionCatalog.All[i];
+                var progress = GetProgress(definition.id);
+                if (progress != null && progress.state == RegionState.Captured && UnlockNext(definition))
+                    changed = true;
+            }
+
+            if (changed)
                 GameBootstrap.Instance.Save.Save();
         }
 
