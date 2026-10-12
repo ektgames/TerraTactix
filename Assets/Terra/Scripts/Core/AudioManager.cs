@@ -12,7 +12,9 @@ namespace TerraTactix.Core
 
         AudioSource music;
         AudioSource effects;
-        AudioClip musicClip;
+        AudioClip menuMusicClip;
+        AudioClip battleMusicClip;
+        AudioClip selectedMusicClip;
         AudioClip tapClip;
         AudioClip mergeClip;
         AudioClip clearClip;
@@ -81,6 +83,28 @@ namespace TerraTactix.Core
             GameBootstrap.Instance.Save.Save();
         }
 
+        public void SetSceneMusic(string sceneName)
+        {
+            Ensure();
+            var next = sceneName == SceneNames.MainMenu
+                ? menuMusicClip
+                : sceneName == SceneNames.Battle
+                    ? battleMusicClip
+                    : null;
+
+            if (selectedMusicClip == next)
+            {
+                ApplyMusicState();
+                return;
+            }
+
+            selectedMusicClip = next;
+            if (music.isPlaying)
+                music.Stop();
+            music.clip = selectedMusicClip;
+            ApplyMusicState();
+        }
+
         public void PlayTap()
         {
             Play(tapClip, 0.35f);
@@ -115,7 +139,12 @@ namespace TerraTactix.Core
             if (music != null)
                 return;
 
-            musicClip = Tone(new[] { 523.25f, 659.25f, 783.99f, 659.25f }, 0.35f, 0.08f);
+            menuMusicClip = Resources.Load<AudioClip>("Audio/menu-music");
+            battleMusicClip = Resources.Load<AudioClip>("Audio/battle-music");
+            if (menuMusicClip == null)
+                Debug.LogError("AudioManager: ana menü müziği bulunamadı.");
+            if (battleMusicClip == null)
+                Debug.LogError("AudioManager: oyun müziği bulunamadı.");
             tapClip = Tone(new[] { 880f }, 0.08f, 0.2f);
             mergeClip = Tone(new[] { 660f, 880f }, 0.07f, 0.18f);
             clearClip = Tone(new[] { 523f, 659f, 784f }, 0.09f, 0.16f);
@@ -124,9 +153,8 @@ namespace TerraTactix.Core
             comboHighClip = Tone(new[] { 523f, 659f, 784f, 1046f, 1318f }, 0.08f, 0.22f);
 
             music = gameObject.AddComponent<AudioSource>();
-            music.clip = musicClip;
             music.loop = true;
-            music.volume = 0.18f * MusicVolume;
+            music.volume = MusicVolume;
             music.playOnAwake = false;
             effects = gameObject.AddComponent<AudioSource>();
             effects.playOnAwake = false;
@@ -138,9 +166,11 @@ namespace TerraTactix.Core
         {
             if (music == null)
                 return;
-            music.volume = 0.18f * MusicVolume;
-            if (MusicEnabled)
+            music.volume = MusicVolume;
+            if (MusicEnabled && selectedMusicClip != null)
             {
+                if (music.clip != selectedMusicClip)
+                    music.clip = selectedMusicClip;
                 if (!music.isPlaying)
                     music.Play();
             }

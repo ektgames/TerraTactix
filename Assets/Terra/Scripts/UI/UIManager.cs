@@ -98,6 +98,7 @@ namespace TerraTactix.UI
             shown = sceneName;
             GameBootstrap.Instance.State.SetModal(false);
             GameBootstrap.Instance.State.SetScene(sceneName);
+            GameBootstrap.Instance.Audio.SetSceneMusic(sceneName);
             if (backdrop != null)
                 ApplyBackdrop(sceneName);
             screen = UiFactory.Rect(safeRoot, "Screen", Vector2.zero, Vector2.one);
