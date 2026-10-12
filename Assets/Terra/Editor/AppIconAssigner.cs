@@ -1,5 +1,7 @@
 using UnityEditor;
+#if UNITY_ANDROID
 using UnityEditor.Android;
+#endif
 using UnityEditor.Build;
 using UnityEngine;
 
@@ -76,8 +78,10 @@ namespace TerraTactix.EditorTools
             changedIcons |= Apply(NamedBuildTarget.Android, IconKind.Application, tex);
             changedIcons |= Apply(NamedBuildTarget.iOS, IconKind.Application, tex);
             changedIcons |= Apply(NamedBuildTarget.iOS, IconKind.Store, tex);
+#if UNITY_ANDROID
             changedIcons |= ApplyPlatform(NamedBuildTarget.Android, AndroidPlatformIconKind.Round, tex, false);
             changedIcons |= ApplyPlatform(NamedBuildTarget.Android, AndroidPlatformIconKind.Adaptive, tex, true);
+#endif
 
             if (changedIcons)
             {
