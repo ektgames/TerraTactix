@@ -50,7 +50,7 @@ namespace TerraTactix.UI
             var title = UiFactory.Label(info.transform, string.Empty, 26f, UiTheme.Ink, new Vector2(0.06f, 0.78f), new Vector2(0.94f, 0.96f));
             var body = UiFactory.Label(info.transform, string.Empty, 20f, UiTheme.Muted, new Vector2(0.06f, 0.34f), new Vector2(0.94f, 0.76f), TextAlignmentOptions.Top);
             var action = UiFactory.Button(info.transform, "Explore", Locale.T("Keşfet", "Explore"), UiTheme.Green, new Vector2(0.1f, 0.16f), new Vector2(0.9f, 0.3f), () => { }, 26f);
-            UiFactory.Label(info.transform, Locale.T("Sisli topraklar kapalı. Komşunu fethedince açılır.", "Fogged lands stay closed. They open when you capture a neighbor."), 16f, UiTheme.Muted, new Vector2(0.06f, 0.02f), new Vector2(0.94f, 0.14f));
+            UiFactory.Label(info.transform, Locale.T("Rotanı özgürce seç. Zor adalar daha çok altın ve puan verir.", "Choose your own route. Harder islands award more gold and score."), 16f, UiTheme.Muted, new Vector2(0.06f, 0.02f), new Vector2(0.94f, 0.14f));
             var captured = GameBootstrap.Instance.Expeditions.CapturedCount();
             UiFactory.Label(parent, Locale.T($"{captured}/{RegionCatalog.All.Length} bölge fethedildi. Kaydır, tekerlek veya iki parmakla yakınlaştır.", $"{captured}/{RegionCatalog.All.Length} regions captured. Drag, scroll, or pinch to zoom."), 16f, UiTheme.Ink, new Vector2(0.02f, 0.01f), new Vector2(0.68f, 0.055f), TextAlignmentOptions.Left);
 
@@ -92,9 +92,6 @@ namespace TerraTactix.UI
 
             var start = RegionCatalog.Get("baslangic");
             var focusId = start != null ? start.id : RegionCatalog.All[0].id;
-            var playable = GameBootstrap.Instance.Expeditions.NextPlayable();
-            if (playable != null && MapBoard.Clear.Count > 3 && MapBoard.Clear.Contains(playable.id))
-                focusId = playable.id;
             navigator.Focus(MapBoard.Normalized(focusId));
             controller.Select(focusId);
             var battles = GameBootstrap.Instance.Battles;
@@ -179,14 +176,15 @@ namespace TerraTactix.UI
             if (!MapBoard.Clear.Contains(definition.id) && !MapBoard.Edge.Contains(definition.id))
                 return;
 
-            var banner = Piece(labels, definition.id + "-label", MapBoard.Position(cell, definition.id) + new Vector2(0f, 36f), 220f, true);
-            banner.sizeDelta = new Vector2(230f, 52f);
+            var banner = Piece(labels, definition.id + "-label", MapBoard.Position(cell, definition.id) + new Vector2(0f, 50f), 220f, true);
+            banner.sizeDelta = new Vector2(250f, 76f);
             var plate = banner.gameObject.AddComponent<Image>();
             plate.sprite = UiFactory.Rounded;
             plate.type = Image.Type.Sliced;
             plate.raycastTarget = false;
             plate.color = new Color(0.05f, 0.09f, 0.18f, 0.94f);
-            var label = UiFactory.Label(banner, Locale.Place(definition.id, definition.displayName), 24f, Color.white, new Vector2(0.04f, 0.08f), new Vector2(0.96f, 0.92f));
+            var labelText = Locale.Place(definition.id, definition.displayName) + "\n" + DifficultyLabel(definition);
+            var label = UiFactory.Label(banner, labelText, 20f, Color.white, new Vector2(0.04f, 0.05f), new Vector2(0.96f, 0.95f));
             label.font = UiFactory.Cute;
             label.fontStyle = FontStyles.Bold;
             label.outlineWidth = 0.22f;
@@ -217,6 +215,12 @@ namespace TerraTactix.UI
                 case RegionState.PartiallyCaptured: return Locale.T("Kısmi", "Partial");
                 default: return Locale.T("Kilitli", "Locked");
             }
+        }
+
+        public static string DifficultyLabel(RegionDefinition definition)
+        {
+            var value = definition == null ? 1f : definition.difficultyRating;
+            return Locale.T("Zorluk", "Difficulty") + " " + value.ToString("0.0") + "/10";
         }
     }
 
@@ -258,7 +262,11 @@ namespace TerraTactix.UI
                 return;
             }
 
-            body.text = $"{Locale.Biome(definition.biome)}\n{Locale.T("Sefer", "Expedition")} {progress.campaignProgress}/{definition.requiredCampaigns}\n{Locale.T("Durum", "Status")}: {WorldMapView.StateLabel(progress.state)}\n{Locale.T("Keşfet 1 can harcar.", "Explore spends 1 heart.")}";
+            var balance = GameBootstrap.Instance.Balance;
+            var nextLevel = Mathf.Clamp(progress.campaignProgress, 0, definition.requiredCampaigns - 1);
+            var gold = balance.battleGoldReward + Mathf.RoundToInt((definition.difficultyRating - 1f) * 12f) + nextLevel * 4;
+            var scoreBoost = Mathf.Lerp(balance.easyScoreMultiplier, balance.extremeScoreMultiplier, Mathf.Clamp01((definition.difficultyRating - 1f) / 9f));
+            body.text = $"{Locale.Biome(definition.biome)} • {WorldMapView.DifficultyLabel(definition)}\n{Locale.T("Sefer", "Expedition")} {progress.campaignProgress}/{definition.requiredCampaigns}\n{Locale.T("Ödül", "Reward")}: {gold} {Locale.T("Altın", "Gold")} • {Locale.T("Puan", "Score")} x{scoreBoost:0.00}\n{Locale.T("Durum", "Status")}: {WorldMapView.StateLabel(progress.state)}\n{Locale.T("Keşfet 1 can harcar.", "Explore spends 1 heart.")}";
             var canAttack = progress.state == RegionState.Available || progress.state == RegionState.PartiallyCaptured || progress.state == RegionState.Attacking;
             actionLabel.text = canAttack ? Locale.T("Keşfet", "Explore") : WorldMapView.StateLabel(progress.state);
         }
@@ -456,62 +464,17 @@ namespace TerraTactix.UI
 
         static Dictionary<string, Vector2Int> PlaceCells()
         {
-            var links = new Dictionary<string, List<string>>();
-            for (var i = 0; i < RegionCatalog.All.Length; i++)
-            {
-                var id = RegionCatalog.All[i].id;
-                if (!links.ContainsKey(id))
-                    links[id] = new List<string>();
-                var next = RegionCatalog.All[i].nextRegionIds;
-                if (next == null)
-                    continue;
-                for (var n = 0; n < next.Length; n++)
-                {
-                    var other = next[n];
-                    if (string.IsNullOrEmpty(other) || RegionCatalog.Get(other) == null)
-                        continue;
-                    if (!links.ContainsKey(other))
-                        links[other] = new List<string>();
-                    if (!links[id].Contains(other))
-                        links[id].Add(other);
-                    if (!links[other].Contains(id))
-                        links[other].Add(id);
-                }
-            }
-
             var cells = new Dictionary<string, Vector2Int>();
             var used = new HashSet<Vector2Int>();
-            var start = RegionCatalog.Get("baslangic");
-            var startId = start != null ? start.id : RegionCatalog.All[0].id;
-            cells[startId] = Vector2Int.zero;
-            used.Add(Vector2Int.zero);
-            var queue = new Queue<string>();
-            queue.Enqueue(startId);
-            while (queue.Count > 0)
-            {
-                var id = queue.Dequeue();
-                if (!links.TryGetValue(id, out var neighbors))
-                    continue;
-                var at = cells[id];
-                for (var i = 0; i < neighbors.Count; i++)
-                {
-                    var next = neighbors[i];
-                    if (cells.ContainsKey(next))
-                        continue;
-                    var spot = NearestFree(at, used);
-                    cells[next] = spot;
-                    used.Add(spot);
-                    queue.Enqueue(next);
-                }
-            }
-
             for (var i = 0; i < RegionCatalog.All.Length; i++)
             {
-                var id = RegionCatalog.All[i].id;
-                if (cells.ContainsKey(id))
-                    continue;
-                var spot = NearestFree(Vector2Int.zero, used);
-                cells[id] = spot;
+                var definition = RegionCatalog.All[i];
+                var spot = new Vector2Int(
+                    Mathf.Clamp(Mathf.FloorToInt(definition.mapAnchor.x * 10f), 0, 9),
+                    Mathf.Clamp(Mathf.FloorToInt(definition.mapAnchor.y * 10f), 0, 9));
+                if (used.Contains(spot))
+                    spot = NearestFree(spot, used);
+                cells[definition.id] = spot;
                 used.Add(spot);
             }
 

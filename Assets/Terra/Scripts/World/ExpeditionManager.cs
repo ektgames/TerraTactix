@@ -30,6 +30,13 @@ namespace TerraTactix.World
                 var progress = GetProgress(definition.id);
                 if (progress == null)
                     continue;
+                // Harita rota secimini oyuncuya birakir; eski kayitlardaki kilitli
+                // adalar da veri kaybi olmadan acik duruma tasinir.
+                if (progress.state == RegionState.Locked)
+                {
+                    progress.state = RegionState.Available;
+                    opened = true;
+                }
                 if (progress.state == RegionState.Captured && progress.campaignProgress < definition.requiredCampaigns)
                 {
                     progress.campaignProgress = definition.requiredCampaigns;

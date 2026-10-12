@@ -14,6 +14,7 @@ namespace TerraTactix.Data
         public Vector2 mapAnchor;
         public Color tint;
         public int routeDepth;
+        public float difficultyRating;
     }
 
     public static class RegionCatalog
@@ -21,103 +22,187 @@ namespace TerraTactix.Data
         const int Columns = 10;
         const int Rows = 10;
 
-        static readonly string[] NamePrefix =
+        static readonly string[] FictionalRoots =
         {
-            "Pırıltı", "Yumuşak", "Sessiz", "Minik", "Parlak", "Tatlı", "Uçuk", "Serin", "Ilık", "Neşeli",
-            "Puslu", "Berrak", "Kıvrık", "Turuncu", "Mavi", "İnce", "Yuvarlak", "Gizli", "Hafif", "Şeker"
+            "Avelin", "Belora", "Cerya", "Doreli", "Elvara", "Fenya", "Gavera", "Heluna", "Ilyora", "Javera",
+            "Kirela", "Lumera", "Mireva", "Noreli", "Oryana", "Pelira", "Ravena", "Selya", "Tavira", "Umera",
+            "Velya", "Yunera", "Zorela", "Arvila", "Esmira"
         };
 
-        static readonly string[] NamePlace =
+        static readonly Vector2Int[] LegacySpecialCells =
         {
-            "Koy", "Tepe", "Ada", "Vadi", "Körfez"
+            new Vector2Int(1, 3), new Vector2Int(3, 5), new Vector2Int(5, 7), new Vector2Int(6, 3),
+            new Vector2Int(2, 7), new Vector2Int(7, 6), new Vector2Int(4, 2), new Vector2Int(7, 1)
         };
 
         public static readonly RegionDefinition[] All = Build();
 
         static RegionDefinition[] Build()
         {
+            var ids = LegacyIds();
+            var usedIds = new HashSet<string>();
+            var pinnedIds = new HashSet<string> { "baslangic", "yesil", "kuzey", "col", "kutup", "lav", "kristal", "gizem" };
+            var biomeCounts = new Dictionary<string, int>();
             var grid = new RegionDefinition[Columns, Rows];
-            var links = new Dictionary<string, List<string>>();
-            var starters = new[]
-            {
-                Place(grid, links, "baslangic", "Başlangıç Adası", "Çayır", 20, RegionState.Available, new[] { "yesil" }, 1, 3, 0, new Color(0.45f, 0.78f, 0.38f)),
-                Place(grid, links, "yesil", "Yeşil Kıyılar", "Orman", 20, RegionState.Available, new[] { "kuzey", "col" }, 3, 5, 1, new Color(0.25f, 0.62f, 0.32f)),
-                Place(grid, links, "kuzey", "Kuzey Ormanları", "Orman", 20, RegionState.Locked, new[] { "kutup" }, 5, 7, 2, new Color(0.20f, 0.55f, 0.34f)),
-                Place(grid, links, "col", "Çöl Kıyısı", "Çöl", 20, RegionState.Locked, new[] { "lav" }, 6, 3, 2, new Color(0.86f, 0.72f, 0.32f)),
-                Place(grid, links, "kutup", "Kutup Uçları", "Buz", 20, RegionState.Locked, new[] { "gizem" }, 2, 7, 3, new Color(0.75f, 0.90f, 0.95f)),
-                Place(grid, links, "lav", "Lav Diyarı", "Volkan", 20, RegionState.Locked, new[] { "kristal" }, 7, 6, 3, new Color(0.85f, 0.35f, 0.22f)),
-                Place(grid, links, "kristal", "Kristal Alanı", "Kristal", 20, RegionState.Locked, new string[0], 4, 2, 4, new Color(0.62f, 0.40f, 0.92f)),
-                Place(grid, links, "gizem", "Gizemli Ada", "Gizem", 20, RegionState.Locked, new string[0], 7, 1, 4, new Color(0.45f, 0.55f, 0.72f))
-            };
+            var cursor = 0;
 
-            var order = new List<RegionDefinition>(Columns * Rows);
-            order.AddRange(starters);
-            var queue = new Queue<RegionDefinition>();
-            for (var i = 0; i < starters.Length; i++)
-                queue.Enqueue(starters[i]);
-
-            var serial = 0;
-            while (queue.Count > 0)
+            for (var y = 0; y < Rows; y++)
             {
-                var parent = queue.Dequeue();
-                var cell = CellOf(parent.mapAnchor);
-                var budget = IsStarter(parent.id) ? 1 : 99;
-                var added = 0;
-                for (var dir = 0; dir < 4 && added < budget; dir++)
+                for (var x = 0; x < Columns; x++)
                 {
-                    var next = Neighbor(cell, dir);
-                    if (next.x < 0 || next.y < 0 || next.x >= Columns || next.y >= Rows || grid[next.x, next.y] != null)
-                        continue;
+                    var id = PinnedId(x, y);
+                    if (string.IsNullOrEmpty(id))
+                    {
+                        while (cursor < ids.Count && (usedIds.Contains(ids[cursor]) || pinnedIds.Contains(ids[cursor])))
+                            cursor++;
+                        id = ids[cursor++];
+                    }
 
-                    var biome = BiomeFor(next.x, next.y);
-                    var depth = parent.routeDepth + 1;
-                    var child = Place(grid, links, "k" + next.x + "x" + next.y, GeneratedName(serial), biome, RequiredFor(depth), RegionState.Locked, new string[0], next.x, next.y, depth, TintFor(biome));
-                    links[parent.id].Add(child.id);
-                    order.Add(child);
-                    queue.Enqueue(child);
-                    serial++;
-                    added++;
+                    usedIds.Add(id);
+                    var biome = BiomeFor(x, y);
+                    biomeCounts.TryGetValue(biome, out var biomeIndex);
+                    biomeCounts[biome] = biomeIndex + 1;
+                    var rating = DifficultyFor(biome, x, y);
+                    grid[x, y] = new RegionDefinition
+                    {
+                        id = id,
+                        displayName = id == "baslangic" ? "Lunarya Adası" : NameFor(biome, biomeIndex),
+                        biome = biome,
+                        requiredCampaigns = 20,
+                        startingState = RegionState.Available,
+                        mapAnchor = CellAnchor(x, y),
+                        tint = TintFor(biome),
+                        routeDepth = Mathf.RoundToInt(rating),
+                        difficultyRating = rating
+                    };
                 }
             }
 
-            for (var i = 0; i < order.Count; i++)
-                order[i].nextRegionIds = links[order[i].id].ToArray();
+            var result = new List<RegionDefinition>(Columns * Rows);
+            for (var y = 0; y < Rows; y++)
+            {
+                for (var x = 0; x < Columns; x++)
+                {
+                    var links = new List<string>(4);
+                    AddLink(grid, links, x - 1, y);
+                    AddLink(grid, links, x + 1, y);
+                    AddLink(grid, links, x, y - 1);
+                    AddLink(grid, links, x, y + 1);
+                    grid[x, y].nextRegionIds = links.ToArray();
+                    result.Add(grid[x, y]);
+                }
+            }
 
-            return order.ToArray();
+            return result.ToArray();
         }
 
-        static bool IsStarter(string id)
+        static List<string> LegacyIds()
         {
-            return id == "baslangic" || id == "yesil" || id == "kuzey" || id == "col" || id == "kutup" || id == "lav" || id == "kristal" || id == "gizem";
+            var ids = new List<string>(Columns * Rows)
+            {
+                "baslangic", "yesil", "kuzey", "col", "kutup", "lav", "kristal", "gizem"
+            };
+            for (var y = 0; y < Rows; y++)
+            {
+                for (var x = 0; x < Columns; x++)
+                {
+                    var oldCell = new Vector2Int(x, y);
+                    var special = false;
+                    for (var i = 0; i < LegacySpecialCells.Length; i++)
+                    {
+                        if (LegacySpecialCells[i] == oldCell)
+                        {
+                            special = true;
+                            break;
+                        }
+                    }
+                    if (!special)
+                        ids.Add("k" + x + "x" + y);
+                }
+            }
+            return ids;
         }
 
-        static int RequiredFor(int depth)
+        static string PinnedId(int x, int y)
         {
-            return 20;
+            if (x == 0 && y == 9) return "baslangic";
+            if (x == 1 && y == 9) return "yesil";
+            if (x == 0 && y == 0) return "kutup";
+            if (x == 1 && y == 0) return "kuzey";
+            if (x == 9 && y == 9) return "lav";
+            if (x == 5 && y == 8) return "kristal";
+            if (x == 6 && y == 3) return "gizem";
+            if (x == 8 && y == 3) return "col";
+            return null;
         }
 
-        static string GeneratedName(int serial)
+        static void AddLink(RegionDefinition[,] grid, List<string> links, int x, int y)
         {
-            return NamePrefix[serial % NamePrefix.Length] + " " + NamePlace[serial / NamePrefix.Length];
+            if (x >= 0 && x < Columns && y >= 0 && y < Rows)
+                links.Add(grid[x, y].id);
         }
 
-        static string BiomeFor(int col, int row)
+        static string BiomeFor(int x, int y)
         {
-            if (row >= 8)
-                return "Buz";
-            if (col >= 8)
+            if (x == 9)
                 return "Volkan";
-            if (col <= 1)
-                return "Çayır";
-            if (row <= 1)
+            if (x <= 3 && y <= 2)
+                return "Buz";
+            if (x <= 2 && y >= 6)
+                return (x + y) % 3 == 0 ? "Orman" : "Çayır";
+            if (x <= 4 && y >= 6)
+                return "Koy";
+            if (x >= 5 && x <= 7 && y >= 5)
                 return "Kristal";
-            if (col >= 6 && row <= 4)
+            if (x >= 7 && y <= 4)
                 return "Çöl";
-            if (row >= 6)
+            if (x <= 3)
                 return "Orman";
-            if ((col + row) % 6 == 0)
-                return "Zehir";
-            return "Ada";
+            if (y <= 3)
+                return "Gizem";
+            return (x + y) % 2 == 0 ? "Zehir" : "Ada";
+        }
+
+        static float DifficultyFor(string biome, int x, int y)
+        {
+            float rating;
+            switch (biome)
+            {
+                case "Çayır":
+                case "Orman": rating = 1f + (x + (9 - y)) * 0.22f; break;
+                case "Koy": rating = 2.6f + (x - 3) * 0.45f + (9 - y) * 0.18f; break;
+                case "Buz": rating = 4f + x * 0.22f + y * 0.18f; break;
+                case "Kristal": rating = 7.1f + (x - 5) * 0.45f + (9 - y) * 0.12f; break;
+                case "Volkan": rating = 9.1f + y * 0.1f; break;
+                case "Çöl": rating = 6f + (x - 7) * 0.38f + y * 0.18f; break;
+                case "Gizem":
+                case "Zehir": rating = 6.2f + x * 0.18f + y * 0.12f; break;
+                default: rating = 4.4f + x * 0.24f + (9 - y) * 0.1f; break;
+            }
+            return Mathf.Round(Mathf.Clamp(rating, 1f, 10f) * 10f) / 10f;
+        }
+
+        static string NameFor(string biome, int index)
+        {
+            var root = FictionalRoots[index % FictionalRoots.Length];
+            switch (biome)
+            {
+                case "Çayır": return root + new[] { " Çayırları", " Yoncalığı", " Bahçesi", " Ovası" }[index % 4];
+                case "Orman": return root + new[] { " Korusu", " Ormanı", " Filizliği", " Ağaçlığı" }[index % 4];
+                case "Koy": return root + new[] { " Koyu", " Körfezi", " Lagünü", " Sahili" }[index % 4];
+                case "Buz": return root + new[] { " Buzluğu", " Ayazı", " Kartepesi", " Don Denizi" }[index % 4];
+                case "Kristal": return root + new[] { " Kristalleri", " Prizma Adası", " Işıktaşı", " Parıltı Ovası" }[index % 4];
+                case "Volkan": return root + new[] { " Yanardağı", " Lav Çanağı", " Köz Adası", " Ateş Yarığı" }[index % 4];
+                case "Çöl": return root + new[] { " Kumluğu", " Güneş Çölü", " Kum Denizi", " Sıcaklığı" }[index % 4];
+                case "Zehir": return root + new[] { " Sisliği", " İksir Bataklığı", " Yeşil Dumanı", " Yankısı" }[index % 4];
+                case "Gizem": return root + new[] { " Rüyası", " Gizli Adası", " Fısıltısı", " Bilmece Vadisi" }[index % 4];
+                default: return root + new[] { " Adası", " Tepesi", " Vadisi", " Kıyısı" }[index % 4];
+            }
+        }
+
+        static Vector2 CellAnchor(int col, int row)
+        {
+            return new Vector2((col + 0.5f) / Columns, (row + 0.5f) / Rows);
         }
 
         static Color TintFor(string biome)
@@ -126,43 +211,15 @@ namespace TerraTactix.Data
             {
                 case "Çayır": return new Color(0.45f, 0.78f, 0.38f);
                 case "Orman": return new Color(0.22f, 0.58f, 0.32f);
+                case "Koy": return new Color(0.32f, 0.76f, 0.82f);
                 case "Çöl": return new Color(0.86f, 0.72f, 0.32f);
                 case "Buz": return new Color(0.75f, 0.90f, 0.95f);
                 case "Volkan": return new Color(0.85f, 0.35f, 0.22f);
                 case "Kristal": return new Color(0.62f, 0.40f, 0.92f);
                 case "Zehir": return new Color(0.55f, 0.78f, 0.28f);
+                case "Gizem": return new Color(0.45f, 0.55f, 0.72f);
                 default: return new Color(0.35f, 0.72f, 0.78f);
             }
-        }
-
-        static RegionDefinition Place(RegionDefinition[,] grid, Dictionary<string, List<string>> links, string id, string displayName, string biome, int required, RegionState state, string[] next, int col, int row, int depth, Color tint)
-        {
-            var definition = Region(id, displayName, biome, required, state, next, CellAnchor(col, row), tint);
-            definition.routeDepth = depth;
-            grid[col, row] = definition;
-            links[id] = new List<string>(next);
-            return definition;
-        }
-
-        static Vector2Int CellOf(Vector2 anchor)
-        {
-            return new Vector2Int(Mathf.Clamp(Mathf.FloorToInt(anchor.x * Columns), 0, Columns - 1), Mathf.Clamp(Mathf.FloorToInt(anchor.y * Rows), 0, Rows - 1));
-        }
-
-        static Vector2Int Neighbor(Vector2Int cell, int dir)
-        {
-            switch (dir)
-            {
-                case 0: return new Vector2Int(cell.x - 1, cell.y);
-                case 1: return new Vector2Int(cell.x, cell.y - 1);
-                case 2: return new Vector2Int(cell.x, cell.y + 1);
-                default: return new Vector2Int(cell.x + 1, cell.y);
-            }
-        }
-
-        static Vector2 CellAnchor(int col, int row)
-        {
-            return new Vector2((col + 0.5f) / Columns, (row + 0.5f) / Rows);
         }
 
         public static RegionDefinition Get(string id)
@@ -172,23 +229,7 @@ namespace TerraTactix.Data
                 if (All[i].id == id)
                     return All[i];
             }
-
             return null;
-        }
-
-        static RegionDefinition Region(string id, string displayName, string biome, int required, RegionState state, string[] next, Vector2 anchor, Color tint)
-        {
-            return new RegionDefinition
-            {
-                id = id,
-                displayName = displayName,
-                biome = biome,
-                requiredCampaigns = required,
-                startingState = state,
-                nextRegionIds = next,
-                mapAnchor = anchor,
-                tint = tint
-            };
         }
 
         public static List<RegionProgressEntry> CreateInitialProgress()
@@ -196,15 +237,14 @@ namespace TerraTactix.Data
             var list = new List<RegionProgressEntry>(All.Length);
             for (var i = 0; i < All.Length; i++)
             {
-                var def = All[i];
+                var definition = All[i];
                 list.Add(new RegionProgressEntry
                 {
-                    regionId = def.id,
-                    state = def.startingState,
-                    campaignProgress = def.startingState == RegionState.Captured ? def.requiredCampaigns : 0
+                    regionId = definition.id,
+                    state = RegionState.Available,
+                    campaignProgress = 0
                 });
             }
-
             return list;
         }
     }

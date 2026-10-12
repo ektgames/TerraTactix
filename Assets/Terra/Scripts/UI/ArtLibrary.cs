@@ -27,6 +27,7 @@ namespace TerraTactix.UI
             switch (biome)
             {
                 case "Orman": return Load("land-orman.png", 0.46f);
+                case "Koy": return Load("land-ada.png", 0.46f);
                 case "Çöl": return Load("land-col.png", 0.46f);
                 case "Buz": return Load("land-buz.png", 0.46f);
                 case "Volkan": return Load("land-volkan.png", 0.46f);
@@ -49,6 +50,7 @@ namespace TerraTactix.UI
             switch (biome)
             {
                 case "Orman": return Load("island-orman.png");
+                case "Koy": return Load("island-ada.png");
                 case "Çöl": return Load("island-col.png");
                 case "Buz": return Load("island-buz.png");
                 case "Volkan": return Load("island-volkan.png");

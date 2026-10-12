@@ -73,6 +73,7 @@ namespace TerraTactix.Core
             {
                 case "Çayır": return "Grassland";
                 case "Orman": return "Forest";
+                case "Koy": return "Cove";
                 case "Çöl": return "Desert";
                 case "Buz": return "Ice";
                 case "Volkan": return "Volcanic";

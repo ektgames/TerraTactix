@@ -5,6 +5,7 @@ namespace TerraTactix.Battle
         public string regionId;
         public int campaignIndex;
         public string difficulty;
+        public float difficultyRating;
         public int targetScore;
         public float timeLimit;
         public float boardComplexity;

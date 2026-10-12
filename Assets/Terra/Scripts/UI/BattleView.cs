@@ -28,6 +28,15 @@ namespace TerraTactix.UI
 
             var region = RegionCatalog.Get(session.regionId);
             var regionName = region == null ? session.regionId : Locale.Place(region.id, region.displayName);
+            var biomeArt = region == null ? null : ArtLibrary.Land(region.biome);
+            if (biomeArt != null)
+            {
+                var scenery = UiFactory.Image(parent, "BiomeScenery", new Color(1f, 1f, 1f, 0.82f), false, new Vector2(0f, 0.03f), new Vector2(1f, 0.90f));
+                scenery.sprite = biomeArt;
+                scenery.type = UnityEngine.UI.Image.Type.Simple;
+                scenery.preserveAspect = true;
+                scenery.raycastTarget = false;
+            }
             var rim = UiFactory.Image(parent, "BoardRim", new Color(0.98f, 0.82f, 0.32f, 1f), false, new Vector2(0.31f, 0.03f), new Vector2(0.69f, 0.9f));
             rim.raycastTarget = false;
             var board = UiFactory.Image(parent, "Board", new Color(0.05f, 0.09f, 0.16f, 0.98f), false, new Vector2(0.318f, 0.045f), new Vector2(0.682f, 0.885f));
@@ -69,7 +78,8 @@ namespace TerraTactix.UI
             title.fontStyle = FontStyles.Bold;
             PrepRow(card.transform, "Region", Locale.T("Bölge", "Region"), regionName, 0.798f, 0.888f, UiTheme.Ink);
             PrepRow(card.transform, "Index", Locale.T("Sefer", "Expedition"), session.campaignIndex.ToString(), 0.698f, 0.788f, UiTheme.Gold);
-            PrepRow(card.transform, "Difficulty", Locale.T("Zorluk", "Difficulty"), Locale.Difficulty(session.difficulty), 0.598f, 0.688f, UiTheme.Yellow);
+            var difficultyText = (region == null ? session.difficultyRating : region.difficultyRating).ToString("0.0") + "/10 • " + Locale.Difficulty(session.difficulty);
+            PrepRow(card.transform, "Difficulty", Locale.T("Zorluk", "Difficulty"), difficultyText, 0.598f, 0.688f, UiTheme.Yellow);
             PrepRow(card.transform, "Goal", Locale.T("Hedef", "Goal"), Locale.T("Tahtadaki tüm taşlar", "Clear every stone"), 0.498f, 0.588f, UiTheme.Ink);
             PrepRow(card.transform, "Time", Locale.T("Süre", "Time"), $"{seconds / 60:00}:{seconds % 60:00}", 0.398f, 0.488f, UiTheme.Ink);
             var notePlate = UiFactory.Image(card.transform, "HeartNote", new Color(0.28f, 0.10f, 0.12f, 1f), false, new Vector2(0.08f, 0.275f), new Vector2(0.92f, 0.372f));
@@ -154,10 +164,22 @@ namespace TerraTactix.UI
             var hud = rect.height * 0.1f;
             var marginX = Mathf.Max(14f, rect.width * 0.012f);
             var marginY = Mathf.Max(12f, rect.height * 0.015f);
-            var x0 = marginX / rect.width;
-            var y0 = marginY / rect.height;
-            var x1 = 1f - x0;
-            var top = 1f - hud / rect.height - 0.012f;
+            var availableWidth = Mathf.Max(1f, rect.width - marginX * 2f);
+            var availableHeight = Mathf.Max(1f, rect.height - hud - marginY * 2f);
+            var aspect = Mathf.Max(1, Columns) / (float)Mathf.Max(1, Rows);
+            var boardWidth = availableHeight * aspect;
+            var boardHeight = availableHeight;
+            if (boardWidth > availableWidth)
+            {
+                boardWidth = availableWidth;
+                boardHeight = boardWidth / aspect;
+            }
+            var left = (rect.width - boardWidth) * 0.5f;
+            var bottom = marginY + (availableHeight - boardHeight) * 0.5f;
+            var x0 = left / rect.width;
+            var y0 = bottom / rect.height;
+            var x1 = (left + boardWidth) / rect.width;
+            var top = (bottom + boardHeight) / rect.height;
             Place(Board, x0, y0, x1, top);
             if (Rim == null)
                 return;
