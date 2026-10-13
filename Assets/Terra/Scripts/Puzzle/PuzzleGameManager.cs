@@ -1549,7 +1549,7 @@ namespace TerraTactix.Puzzle
             Refresh();
             var title = won ? Locale.T("Sefer kazanıldı", "Expedition won") : Locale.T("Sefer kaybedildi", "Expedition lost");
             var capture = result.captured ? Locale.T("\nBölge fethedildi.", "\nRegion captured.") : string.Empty;
-            var body = $"{reason}{capture}\n{Locale.T("Kayıt cihazda tutuldu, sıralamaya yüklenmedi.", "The result is saved on this device and was not uploaded.")}";
+            var body = $"{reason}{capture}";
             var card = UiFactory.Dialog(transform, title, body, () =>
             {
                 if (GameBootstrap.Instance != null)
