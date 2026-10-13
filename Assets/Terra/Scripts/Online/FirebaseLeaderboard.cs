@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Security.Cryptography;
 using System.Text;
 using TerraTactix.Core;
 using TerraTactix.Data;
@@ -66,6 +67,79 @@ namespace TerraTactix.Online
         public LeaderboardEntry[] GetTop()
         {
             return cache;
+        }
+
+        public IEnumerator ReserveName(string rawName, Action<bool, string, string> done)
+        {
+            var name = PlayerData.CleanName(rawName);
+            var nameKey = PlayerData.NameKey(name);
+            if (nameKey.Length == 0)
+            {
+                done?.Invoke(false, string.Empty, Locale.T("Bir isim yaz.", "Enter a name."));
+                yield break;
+            }
+
+            LeaderboardEntry[] all = null;
+            using (var request = UnityWebRequest.Get(root + "/players.json"))
+            {
+                request.timeout = 12;
+                yield return request.SendWebRequest();
+                if (request.result != UnityWebRequest.Result.Success)
+                {
+                    done?.Invoke(false, string.Empty, Locale.T("İsim kontrolü için internet bağlantısı gerekiyor.", "An internet connection is required to check the name."));
+                    yield break;
+                }
+                all = Parse(request.downloadHandler.text, string.Empty, int.MaxValue);
+            }
+
+            for (var i = 0; i < all.Length; i++)
+            {
+                if (all[i] != null && string.Equals(PlayerData.NameKey(all[i].playerName), nameKey, StringComparison.Ordinal))
+                {
+                    done?.Invoke(false, string.Empty, Locale.T("Bu isim daha önce alınmış. Başka bir isim seç.", "This name is already taken. Choose another name."));
+                    yield break;
+                }
+            }
+
+            var playerId = NamePlayerId(nameKey);
+            var body = "{\"name\":" + Quote(name)
+                + ",\"score\":0"
+                + ",\"regions\":0"
+                + ",\"country\":" + Quote(PlayerCountry.CurrentCode())
+                + ",\"updated\":" + DateTimeOffset.UtcNow.ToUnixTimeSeconds() + "}";
+            using (var request = UnityWebRequest.Put(root + "/players/" + playerId + ".json", body))
+            {
+                request.timeout = 12;
+                request.SetRequestHeader("Content-Type", "application/json");
+                request.SetRequestHeader("if-match", "null_etag");
+                yield return request.SendWebRequest();
+                if (request.responseCode == 412)
+                {
+                    done?.Invoke(false, string.Empty, Locale.T("Bu isim daha önce alınmış. Başka bir isim seç.", "This name is already taken. Choose another name."));
+                    yield break;
+                }
+                if (request.result != UnityWebRequest.Result.Success)
+                {
+                    done?.Invoke(false, string.Empty, Locale.T("İsim kaydedilemedi. İnternetini kontrol edip tekrar dene.", "The name could not be saved. Check your connection and try again."));
+                    yield break;
+                }
+            }
+
+            hasFreshCache = false;
+            done?.Invoke(true, playerId, string.Empty);
+        }
+
+        static string NamePlayerId(string nameKey)
+        {
+            using (var sha = SHA256.Create())
+            {
+                var bytes = sha.ComputeHash(Encoding.UTF8.GetBytes(nameKey));
+                var builder = new StringBuilder(36);
+                builder.Append("name_");
+                for (var i = 0; i < 16; i++)
+                    builder.Append(bytes[i].ToString("x2"));
+                return builder.ToString();
+            }
         }
 
         public IEnumerator Sync(Action<bool, bool, string> done, bool force = false)
@@ -232,7 +306,7 @@ namespace TerraTactix.Online
             return app.Save.Data.player.playerId ?? string.Empty;
         }
 
-        public static LeaderboardEntry[] Parse(string json, string localId)
+        public static LeaderboardEntry[] Parse(string json, string localId, int limit = 100)
         {
             var rows = new List<LeaderboardEntry>();
             if (string.IsNullOrWhiteSpace(json) || json.Trim() == "null")
@@ -280,8 +354,8 @@ namespace TerraTactix.Online
                 var byScore = b.score.CompareTo(a.score);
                 return byScore != 0 ? byScore : string.Compare(a.playerName, b.playerName, StringComparison.Ordinal);
             });
-            if (rows.Count > 100)
-                rows.RemoveRange(100, rows.Count - 100);
+            if (rows.Count > limit)
+                rows.RemoveRange(limit, rows.Count - limit);
             for (var n = 0; n < rows.Count; n++)
                 rows[n].rank = n + 1;
             return rows.ToArray();

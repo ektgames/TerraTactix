@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using TerraTactix.Core;
+using TerraTactix.Data;
 using UnityEngine;
 
 namespace TerraTactix.Online
@@ -56,6 +57,27 @@ namespace TerraTactix.Online
             }
 
             done?.Invoke(GetTop(), true);
+        }
+
+        public void ReserveName(string rawName, Action<bool, string, string> done)
+        {
+            if (service is FirebaseLeaderboardService firebase)
+            {
+                StartCoroutine(firebase.ReserveName(rawName, done));
+                return;
+            }
+
+            var key = PlayerData.NameKey(rawName);
+            var rows = GetTop();
+            for (var i = 0; i < rows.Length; i++)
+            {
+                if (rows[i] != null && string.Equals(PlayerData.NameKey(rows[i].playerName), key, StringComparison.Ordinal))
+                {
+                    done?.Invoke(false, string.Empty, Locale.T("Bu isim daha önce alınmış. Başka bir isim seç.", "This name is already taken. Choose another name."));
+                    return;
+                }
+            }
+            done?.Invoke(true, Guid.NewGuid().ToString("N"), string.Empty);
         }
 
         IEnumerator Run(FirebaseLeaderboardService firebase, bool force)

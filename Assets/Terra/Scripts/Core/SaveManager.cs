@@ -61,7 +61,7 @@ namespace TerraTactix.Core
             Debug.Log("[Terra] İlerleme sıfırlandı.");
         }
 
-        public bool TryChooseName(string raw, out string message)
+        public bool TryChooseName(string raw, string reservedPlayerId, out string message)
         {
             message = string.Empty;
             if (Data == null || Data.player == null)
@@ -80,6 +80,8 @@ namespace TerraTactix.Core
             }
 
             Data.player.playerName = name;
+            if (!string.IsNullOrEmpty(reservedPlayerId) && reservedPlayerId.Length >= 16)
+                Data.player.playerId = reservedPlayerId;
             Data.player.nameChosen = true;
             Save();
             return true;

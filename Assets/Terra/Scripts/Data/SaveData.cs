@@ -169,6 +169,30 @@ namespace TerraTactix.Data
                 text = text.Substring(0, MaxNameLength).Trim();
             return text;
         }
+
+        public static string NameKey(string raw)
+        {
+            var name = CleanName(raw);
+            if (name.Length == 0)
+                return string.Empty;
+            name = name.Normalize(System.Text.NormalizationForm.FormKC).ToUpperInvariant();
+            var builder = new System.Text.StringBuilder(name.Length);
+            var pendingSpace = false;
+            for (var i = 0; i < name.Length; i++)
+            {
+                var c = name[i];
+                if (char.IsWhiteSpace(c))
+                {
+                    pendingSpace = builder.Length > 0;
+                    continue;
+                }
+                if (pendingSpace)
+                    builder.Append(' ');
+                pendingSpace = false;
+                builder.Append(c == 'İ' || c == 'ı' ? 'I' : c);
+            }
+            return builder.ToString();
+        }
     }
 
     [Serializable]

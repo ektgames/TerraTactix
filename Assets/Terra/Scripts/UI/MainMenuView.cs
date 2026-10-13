@@ -328,7 +328,7 @@ namespace TerraTactix.UI
             GameBootstrap.Instance.State.SetModal(true);
             var card = UiFactory.Image(blocker.transform, "Card", UiTheme.Panel, false, new Vector2(0.30f, 0.26f), new Vector2(0.70f, 0.74f));
             UiFactory.Label(card.transform, Locale.T("İsmini yaz", "Enter your name"), 32f, UiTheme.Yellow, new Vector2(0.08f, 0.78f), new Vector2(0.92f, 0.94f));
-            UiFactory.Label(card.transform, Locale.T("Bu isim bir kez yazılır ve sonra değiştirilemez.\nEn fazla 18 harf.", "This name is written once and cannot be changed.\nUp to 18 letters."), 20f, UiTheme.Muted, new Vector2(0.08f, 0.58f), new Vector2(0.92f, 0.76f));
+            UiFactory.Label(card.transform, Locale.T("Bu isim benzersiz olmalı, bir kez yazılır ve değiştirilemez.\nEn fazla 18 harf.", "This name must be unique, is entered once, and cannot be changed.\nUp to 18 letters."), 20f, UiTheme.Muted, new Vector2(0.08f, 0.58f), new Vector2(0.92f, 0.76f));
 
             var field = UiFactory.Image(card.transform, "Field", new Color(0.05f, 0.08f, 0.14f, 1f), false, new Vector2(0.08f, 0.40f), new Vector2(0.92f, 0.55f));
             var viewport = UiFactory.Rect(field.transform, "Text Area", new Vector2(0.04f, 0.08f), new Vector2(0.96f, 0.92f));
@@ -370,13 +370,39 @@ namespace TerraTactix.UI
             startLabel.outlineWidth = 0f;
             start.onClick.AddListener(() =>
             {
-                if (!GameBootstrap.Instance.Save.TryChooseName(input.text, out var message))
+                var chosenName = PlayerData.CleanName(input.text);
+                if (chosenName.Length == 0)
                 {
-                    error.text = message;
+                    error.text = Locale.T("Bir isim yaz.", "Enter a name.");
                     return;
                 }
-
-                GameBootstrap.Instance.Ui.Show(SceneNames.MainMenu);
+                start.interactable = false;
+                input.interactable = false;
+                error.text = string.Empty;
+                startLabel.text = Locale.T("Kontrol ediliyor...", "Checking...");
+                GameBootstrap.Instance.Leaderboard.ReserveName(chosenName, (reserved, playerId, reserveMessage) =>
+                {
+                    if (blocker == null)
+                        return;
+                    if (!reserved)
+                    {
+                        error.text = reserveMessage;
+                        start.interactable = true;
+                        input.interactable = true;
+                        startLabel.text = Locale.T("Başla", "Start");
+                        input.ActivateInputField();
+                        return;
+                    }
+                    if (!GameBootstrap.Instance.Save.TryChooseName(chosenName, playerId, out var saveMessage))
+                    {
+                        error.text = saveMessage;
+                        start.interactable = true;
+                        input.interactable = true;
+                        startLabel.text = Locale.T("Başla", "Start");
+                        return;
+                    }
+                    GameBootstrap.Instance.Ui.Show(SceneNames.MainMenu);
+                });
             });
             UiFactory.Button(card.transform, "CloseName", Locale.T("Kapat", "Close"), UiTheme.Panel, new Vector2(0.22f, 0.04f), new Vector2(0.78f, 0.14f), () =>
             {
