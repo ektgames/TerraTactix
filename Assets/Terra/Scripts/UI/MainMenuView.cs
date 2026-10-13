@@ -1,7 +1,9 @@
 using TerraTactix.Core;
 using TerraTactix.Data;
+using TerraTactix.Online;
 using TMPro;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 namespace TerraTactix.UI
@@ -147,29 +149,32 @@ namespace TerraTactix.UI
             }
 
             var app = GameBootstrap.Instance;
-            var next = app.Expeditions.NextPlayable();
-            var card = UiFactory.Image(parent, "Chapter", new Color(0.07f, 0.12f, 0.22f, 0.92f), false, new Vector2(0.745f, 0.50f), new Vector2(0.985f, 0.88f));
-            if (next == null)
+            var next = CurrentJourney(app);
+            var card = UiFactory.Image(parent, "JourneyPages", new Color(0.18f, 0.34f, 0.46f, 0.96f), false, new Vector2(0.745f, 0.50f), new Vector2(0.985f, 0.88f));
+            card.sprite = UiFactory.Rounded;
+            card.type = Image.Type.Sliced;
+            var viewport = UiFactory.Rect(card.transform, "Viewport", new Vector2(0.035f, 0.04f), new Vector2(0.965f, 0.96f));
+            var swipeArea = viewport.gameObject.AddComponent<Image>();
+            swipeArea.color = new Color(1f, 1f, 1f, 0.001f);
+            viewport.gameObject.AddComponent<RectMask2D>();
+            var journeyPage = UiFactory.Rect(viewport, "Journey", Vector2.zero, Vector2.one);
+            var leaderboardPage = UiFactory.Rect(viewport, "Leaderboard", Vector2.zero, Vector2.one);
+
+            BuildJourneyPage(journeyPage, next, parent);
+            BuildLeaderboardPage(leaderboardPage);
+
+            var dots = new Image[2];
+            for (var i = 0; i < dots.Length; i++)
             {
-                UiFactory.Label(card.transform, Locale.T("Açık bölge yok", "No open region"), 24f, UiTheme.Ink, new Vector2(0.06f, 0.2f), new Vector2(0.94f, 0.8f));
+                var dot = UiFactory.Point(card.transform, "PageDot" + i, new Vector2(0.47f + i * 0.06f, 0.055f), new Vector2(14f, 14f));
+                dots[i] = dot.gameObject.AddComponent<Image>();
+                dots[i].sprite = UiFactory.Knob;
+                dots[i].raycastTarget = false;
             }
-            else
-            {
-                var progress = app.Expeditions.GetProgress(next.id);
-                var done = progress == null ? 0 : progress.campaignProgress;
-                var need = next.requiredCampaigns;
-                UiFactory.Label(card.transform, Locale.Place(next.id, next.displayName), 28f, UiTheme.Ink, new Vector2(0.06f, 0.55f), new Vector2(0.94f, 0.92f));
-                var filled = need <= 0 ? 0 : Mathf.Clamp(Mathf.RoundToInt(done / (float)need * 5f), 0, 5);
-                for (var i = 0; i < 5; i++)
-                {
-                    var pip = UiFactory.Point(card.transform, "Star" + i, new Vector2(0.16f + i * 0.14f, 0.42f), new Vector2(18f, 18f));
-                    var star = pip.gameObject.AddComponent<UnityEngine.UI.Image>();
-                    star.sprite = UiFactory.Knob;
-                    star.color = i < filled ? UiTheme.Yellow : new Color(1f, 1f, 1f, 0.28f);
-                    star.raycastTarget = false;
-                }
-                UiFactory.Label(card.transform, $"{Locale.Biome(next.biome)}   {Locale.T("Sefer", "Expedition")} {done}/{need}", 18f, UiTheme.Muted, new Vector2(0.06f, 0.08f), new Vector2(0.94f, 0.32f));
-            }
+
+            var pager = viewport.gameObject.AddComponent<MainMenuPager>();
+            pager.Setup(viewport, new[] { journeyPage, leaderboardPage }, dots);
+            UiFactory.Label(card.transform, Locale.T("Kaydır", "Swipe"), 12f, new Color(0.94f, 0.98f, 1f, 0.72f), new Vector2(0.70f, 0.015f), new Vector2(0.94f, 0.09f), TextAlignmentOptions.Right);
 
             var offer = UiFactory.Button(parent, "Offer", OfferText(), new Color(0.48f, 0.28f, 0.82f), new Vector2(0.745f, 0.30f), new Vector2(0.985f, 0.47f), () => OpenChest(parent), 22f);
             if (locked)
@@ -189,6 +194,118 @@ namespace TerraTactix.UI
             playLabel.outlineWidth = 0f;
             if (locked)
                 Freeze(play);
+        }
+
+        static RegionDefinition CurrentJourney(GameBootstrap app)
+        {
+            var session = app.Battles.Session;
+            if (session != null)
+            {
+                var current = RegionCatalog.Get(session.regionId);
+                var progress = current == null ? null : app.Expeditions.GetProgress(current.id);
+                if (progress != null && progress.state != RegionState.Captured && progress.state != RegionState.Locked)
+                    return current;
+            }
+            return app.Expeditions.NextPlayable();
+        }
+
+        static void BuildJourneyPage(RectTransform page, RegionDefinition next, Transform dialogRoot)
+        {
+            var panel = UiFactory.Image(page, "JourneyCard", new Color(0.94f, 0.72f, 0.46f, 0.96f), false, new Vector2(0.015f, 0.05f), new Vector2(0.985f, 0.985f));
+            panel.raycastTarget = true;
+            var button = panel.gameObject.AddComponent<Button>();
+            button.targetGraphic = panel;
+            var navigation = button.navigation;
+            navigation.mode = Navigation.Mode.None;
+            button.navigation = navigation;
+            button.onClick.AddListener(() => ShowJourneyDetails(dialogRoot, next));
+            var inner = UiFactory.Image(panel.transform, "Inner", new Color(0.10f, 0.22f, 0.30f, 0.96f), false, new Vector2(0.018f, 0.025f), new Vector2(0.982f, 0.975f));
+            inner.raycastTarget = false;
+            if (next == null)
+            {
+                UiFactory.Label(inner.transform, Locale.T("Açık bölge yok", "No open region"), 24f, UiTheme.Ink, new Vector2(0.06f, 0.2f), new Vector2(0.94f, 0.8f));
+            }
+            else
+            {
+                var progress = GameBootstrap.Instance.Expeditions.GetProgress(next.id);
+                var done = progress == null ? 0 : progress.campaignProgress;
+                var need = next.requiredCampaigns;
+                var title = UiFactory.Label(inner.transform, Locale.Place(next.id, next.displayName), 27f, Color.white, new Vector2(0.07f, 0.68f), new Vector2(0.93f, 0.93f));
+                title.fontStyle = FontStyles.Bold;
+                title.enableAutoSizing = true;
+                title.fontSizeMin = 19f;
+                title.fontSizeMax = 27f;
+
+                var biome = UiFactory.Image(inner.transform, "Biome", new Color(0.42f, 0.78f, 0.55f, 0.96f), false, new Vector2(0.17f, 0.51f), new Vector2(0.83f, 0.66f));
+                biome.raycastTarget = false;
+                var biomeLabel = UiFactory.Label(biome.transform, Locale.Biome(next.biome), 18f, Color.white, Vector2.zero, Vector2.one);
+                biomeLabel.fontStyle = FontStyles.Bold;
+
+                UiFactory.Label(inner.transform, $"{Locale.T("Sefer ilerlemesi", "Expedition progress")}   {done}/{need}", 18f, new Color(0.95f, 0.96f, 1f), new Vector2(0.07f, 0.34f), new Vector2(0.93f, 0.49f));
+                var track = UiFactory.Image(inner.transform, "ProgressTrack", new Color(0.03f, 0.08f, 0.12f, 0.94f), false, new Vector2(0.09f, 0.23f), new Vector2(0.91f, 0.32f));
+                track.raycastTarget = false;
+                var pct = need <= 0 ? 0f : Mathf.Clamp01(done / (float)need);
+                var fill = UiFactory.Image(track.transform, "ProgressFill", new Color(0.98f, 0.72f, 0.30f), false, Vector2.zero, new Vector2(pct, 1f));
+                fill.raycastTarget = false;
+                UiFactory.Label(inner.transform, $"{Locale.T("Zorluk", "Difficulty")} {next.difficultyRating:0.0}/10  •  {Locale.T("Detay için dokun", "Tap for details")}", 15f, new Color(0.76f, 0.90f, 0.98f), new Vector2(0.07f, 0.07f), new Vector2(0.93f, 0.20f));
+            }
+        }
+
+        static void ShowJourneyDetails(Transform parent, RegionDefinition region)
+        {
+            if (region == null)
+            {
+                UiFactory.Dialog(parent, Locale.T("Sefer", "Expedition"), Locale.T("Şu anda oynanabilir bir ada yok.", "There is no playable island right now."), null);
+                return;
+            }
+
+            var progress = GameBootstrap.Instance.Expeditions.GetProgress(region.id);
+            var done = progress == null ? 0 : progress.campaignProgress;
+            var remaining = Mathf.Max(0, region.requiredCampaigns - done);
+            var state = progress == null ? RegionState.Locked : progress.state;
+            var body =
+                $"{Locale.T("Biyom", "Biome")}: {Locale.Biome(region.biome)}\n" +
+                $"{Locale.T("Sefer", "Expedition")}: {done}/{region.requiredCampaigns}\n" +
+                $"{Locale.T("Kalan sefer", "Remaining expeditions")}: {remaining}\n" +
+                $"{Locale.T("Zorluk", "Difficulty")}: {region.difficultyRating:0.0}/10\n" +
+                $"{Locale.T("Durum", "Status")}: {WorldMapView.StateLabel(state)}";
+            UiFactory.Dialog(parent, Locale.Place(region.id, region.displayName), body, null);
+        }
+
+        static void BuildLeaderboardPage(RectTransform page)
+        {
+            var panel = UiFactory.Image(page, "RankCard", new Color(0.72f, 0.55f, 0.92f, 0.97f), false, new Vector2(0.015f, 0.05f), new Vector2(0.985f, 0.985f));
+            panel.raycastTarget = true;
+            var button = panel.gameObject.AddComponent<Button>();
+            button.targetGraphic = panel;
+            var navigation = button.navigation;
+            navigation.mode = Navigation.Mode.None;
+            button.navigation = navigation;
+            button.onClick.AddListener(() => GameBootstrap.Instance.Scenes.Load(SceneNames.Leaderboard));
+            var inner = UiFactory.Image(panel.transform, "Inner", new Color(0.12f, 0.18f, 0.32f, 0.97f), false, new Vector2(0.018f, 0.025f), new Vector2(0.982f, 0.975f));
+            inner.raycastTarget = false;
+            UiFactory.Label(inner.transform, Locale.T("Sıralama", "Leaderboard"), 26f, new Color(1f, 0.84f, 0.38f), new Vector2(0.06f, 0.80f), new Vector2(0.94f, 0.96f));
+            var status = UiFactory.Label(inner.transform, Locale.T("Yükleniyor...", "Loading..."), 14f, new Color(0.78f, 0.88f, 0.98f), new Vector2(0.06f, 0.71f), new Vector2(0.94f, 0.81f));
+            var rows = new TMP_Text[3];
+            for (var i = 0; i < rows.Length; i++)
+            {
+                var yMax = 0.69f - i * 0.15f;
+                var row = UiFactory.Image(inner.transform, "Rank" + i, i == 0 ? new Color(0.48f, 0.34f, 0.12f, 0.96f) : new Color(0.18f, 0.28f, 0.44f, 0.96f), false, new Vector2(0.07f, yMax - 0.12f), new Vector2(0.93f, yMax));
+                row.raycastTarget = false;
+                rows[i] = UiFactory.Label(row.transform, "—", 17f, Color.white, new Vector2(0.04f, 0f), new Vector2(0.96f, 1f), TextAlignmentOptions.Left);
+                rows[i].textWrappingMode = TextWrappingModes.NoWrap;
+                rows[i].overflowMode = TextOverflowModes.Ellipsis;
+            }
+
+            var mine = UiFactory.Image(inner.transform, "Mine", new Color(0.24f, 0.58f, 0.46f, 0.98f), false, new Vector2(0.07f, 0.08f), new Vector2(0.93f, 0.21f));
+            mine.raycastTarget = false;
+            var mineLabel = UiFactory.Label(mine.transform, Locale.T("Sen: yükleniyor", "You: loading"), 17f, Color.white, new Vector2(0.04f, 0f), new Vector2(0.96f, 1f), TextAlignmentOptions.Left);
+            mineLabel.textWrappingMode = TextWrappingModes.NoWrap;
+            mineLabel.overflowMode = TextOverflowModes.Ellipsis;
+            UiFactory.Label(inner.transform, Locale.T("İlk 100 için dokun", "Tap for top 100"), 13f, new Color(0.84f, 0.91f, 1f), new Vector2(0.07f, 0.01f), new Vector2(0.93f, 0.075f));
+
+            var loader = page.gameObject.AddComponent<MainMenuLeaderboardCard>();
+            loader.Open(status, rows, mineLabel);
         }
 
         static void Freeze(Button button)
@@ -296,12 +413,7 @@ namespace TerraTactix.UI
             UiFactory.Button(card.transform, "LangTr", "Türkçe", Locale.English ? UiTheme.Panel : UiTheme.Green, new Vector2(0.08f, 0.36f), new Vector2(0.48f, 0.44f), () => Locale.SetLanguage("tr"), 22f);
             UiFactory.Button(card.transform, "LangEn", "English", Locale.English ? UiTheme.Green : UiTheme.Panel, new Vector2(0.52f, 0.36f), new Vector2(0.92f, 0.44f), () => Locale.SetLanguage("en"), 22f);
 
-            UiFactory.Button(card.transform, "Ranks", Locale.T("Sıralama", "Leaderboard"), UiTheme.Panel, new Vector2(0.08f, 0.25f), new Vector2(0.92f, 0.33f), () =>
-            {
-                GameBootstrap.Instance.State.SetModal(false);
-                GameBootstrap.Instance.Scenes.Load(SceneNames.Leaderboard);
-            }, 22f);
-            UiFactory.Button(card.transform, "Reset", Locale.T("İlerlemeyi sıfırla", "Reset progress"), UiTheme.Heart, new Vector2(0.08f, 0.15f), new Vector2(0.92f, 0.23f), () =>
+            UiFactory.Button(card.transform, "Reset", Locale.T("İlerlemeyi sıfırla", "Reset progress"), UiTheme.Heart, new Vector2(0.08f, 0.22f), new Vector2(0.92f, 0.30f), () =>
             {
                 var confirm = UiFactory.Dialog(blocker.transform, Locale.T("Emin misin?", "Are you sure?"), Locale.T("Yerel kayıt yeni oyuna döner.", "The local save returns to a new game."), null);
                 UiFactory.Button(confirm, "Yes", Locale.T("Evet, sıfırla", "Yes, reset"), UiTheme.Heart, new Vector2(0.15f, 0.24f), new Vector2(0.85f, 0.42f), () =>
@@ -396,6 +508,155 @@ namespace TerraTactix.UI
             image.sprite = sprite;
             image.color = color;
             image.raycastTarget = false;
+        }
+    }
+
+    public sealed class MainMenuPager : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler
+    {
+        RectTransform viewport;
+        RectTransform[] pages;
+        Image[] dots;
+        int pageIndex;
+        bool dragging;
+        float dragOffset;
+        float startLocalX;
+
+        public void Setup(RectTransform pageViewport, RectTransform[] pageRects, Image[] pageDots)
+        {
+            viewport = pageViewport;
+            pages = pageRects;
+            dots = pageDots;
+            pageIndex = 0;
+            Layout(0f, true);
+        }
+
+        public void OnBeginDrag(PointerEventData eventData)
+        {
+            if (viewport == null)
+                return;
+            if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(viewport, eventData.position, eventData.pressEventCamera, out var local))
+                return;
+            startLocalX = local.x;
+            dragOffset = 0f;
+            dragging = true;
+        }
+
+        public void OnDrag(PointerEventData eventData)
+        {
+            if (!dragging || viewport == null)
+                return;
+            if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(viewport, eventData.position, eventData.pressEventCamera, out var local))
+                return;
+            dragOffset = local.x - startLocalX;
+            if ((pageIndex == 0 && dragOffset > 0f) || (pageIndex == pages.Length - 1 && dragOffset < 0f))
+                dragOffset *= 0.25f;
+            Layout(dragOffset, true);
+        }
+
+        public void OnEndDrag(PointerEventData eventData)
+        {
+            if (!dragging || viewport == null)
+                return;
+            var threshold = viewport.rect.width * 0.14f;
+            if (dragOffset <= -threshold && pageIndex < pages.Length - 1)
+                pageIndex++;
+            else if (dragOffset >= threshold && pageIndex > 0)
+                pageIndex--;
+            dragOffset = 0f;
+            dragging = false;
+            PaintDots();
+        }
+
+        void Update()
+        {
+            if (!dragging)
+                Layout(0f, false);
+        }
+
+        void Layout(float offset, bool immediate)
+        {
+            if (viewport == null || pages == null)
+                return;
+            var width = Mathf.Max(1f, viewport.rect.width);
+            for (var i = 0; i < pages.Length; i++)
+            {
+                if (pages[i] == null)
+                    continue;
+                var target = new Vector2((i - pageIndex) * width + offset, 0f);
+                pages[i].anchoredPosition = immediate
+                    ? target
+                    : Vector2.Lerp(pages[i].anchoredPosition, target, 1f - Mathf.Exp(-14f * Time.unscaledDeltaTime));
+            }
+            PaintDots();
+        }
+
+        void PaintDots()
+        {
+            if (dots == null)
+                return;
+            for (var i = 0; i < dots.Length; i++)
+            {
+                if (dots[i] != null)
+                    dots[i].color = i == pageIndex ? new Color(1f, 0.82f, 0.34f, 1f) : new Color(1f, 1f, 1f, 0.34f);
+            }
+        }
+    }
+
+    public sealed class MainMenuLeaderboardCard : MonoBehaviour
+    {
+        TMP_Text status;
+        TMP_Text[] rows;
+        TMP_Text mine;
+
+        public void Open(TMP_Text statusLabel, TMP_Text[] rowLabels, TMP_Text mineLabel)
+        {
+            status = statusLabel;
+            rows = rowLabels;
+            mine = mineLabel;
+            var board = GameBootstrap.Instance.Leaderboard;
+            if (!board.IsLive)
+            {
+                Show(board.GetTop(), true, true);
+                return;
+            }
+
+            board.Refresh((entries, ok) =>
+            {
+                if (this != null)
+                    Show(entries, ok, false);
+            });
+        }
+
+        void Show(LeaderboardEntry[] entries, bool ok, bool sample)
+        {
+            if (status != null)
+            {
+                if (sample)
+                    status.text = Locale.T("Örnek sıralama", "Sample leaderboard");
+                else if (!ok)
+                    status.text = Locale.T("Bağlantı kurulamadı", "Could not connect");
+                else
+                    status.text = Locale.T("En iyi oyuncular", "Top players");
+            }
+
+            for (var i = 0; rows != null && i < rows.Length; i++)
+            {
+                if (rows[i] == null)
+                    continue;
+                if (entries == null || i >= entries.Length || entries[i] == null)
+                {
+                    rows[i].text = $"{i + 1}.  —";
+                    continue;
+                }
+                var entry = entries[i];
+                rows[i].text = $"{entry.rank}.  {entry.playerName}     {entry.score}";
+            }
+
+            if (mine == null)
+                return;
+            var local = GameBootstrap.Instance.Leaderboard.LocalRow();
+            var rank = local.rank > 0 ? "#" + local.rank : Locale.T("İlk 100 dışında", "Outside top 100");
+            mine.text = $"{Locale.T("Sen", "You")}: {rank}     {Locale.T("Puan", "Score")} {local.score}";
         }
     }
 
