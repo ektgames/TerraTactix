@@ -54,6 +54,7 @@ namespace TerraTactix.Puzzle
         TMP_Text burstCount;
         TMP_Text burstPlus;
         Button timeFreezeButton;
+        GameObject timeFreezeButtonShadow;
         TMP_Text timeFreezeButtonLabel;
         Image timeFreezeWash;
         TMP_Text timeFreezeBanner;
@@ -63,9 +64,10 @@ namespace TerraTactix.Puzzle
 
         public float CellScreenWidth => board == null || grid == null ? 48f : board.rect.width * board.lossyScale.x / grid.Width;
 
-        public void ConfigureTimeFreeze(Button button)
+        public void ConfigureTimeFreeze(Button button, GameObject shadow)
         {
             timeFreezeButton = button;
+            timeFreezeButtonShadow = shadow;
             timeFreezeButtonLabel = button == null ? null : button.GetComponentInChildren<TMP_Text>();
             RefreshTimeFreezeButton();
         }
@@ -1996,7 +1998,7 @@ namespace TerraTactix.Puzzle
             {
                 var total = Mathf.CeilToInt(timer.Remaining);
                 var frozen = timeFreezeRemaining > 0f;
-                timerLabel.text = frozen ? $"❄ {total / 60:00}:{total % 60:00}" : $"{total / 60:00}:{total % 60:00}";
+                timerLabel.text = $"{total / 60:00}:{total % 60:00}";
                 var warn = timer.Remaining <= 15f;
                 timerLabel.color = frozen ? new Color(0.55f, 0.92f, 1f) : warn ? UiTheme.Heart : UiTheme.Ink;
                 var pulse = frozen
@@ -2038,7 +2040,7 @@ namespace TerraTactix.Puzzle
 
             var wave = 0.5f + 0.5f * Mathf.Sin(Time.unscaledTime * 6f);
             timeFreezeWash.color = new Color(0.35f, 0.86f, 1f, Mathf.Lerp(0.08f, 0.18f, wave));
-            timeFreezeBanner.text = $"❄ {Locale.T("SÜRE DONDU", "TIME FROZEN")}  {Mathf.CeilToInt(timeFreezeRemaining)}";
+            timeFreezeBanner.text = $"{Locale.T("SÜRE DONDU", "TIME FROZEN")}  {Mathf.CeilToInt(timeFreezeRemaining)}";
             var scale = Mathf.Lerp(0.98f, 1.06f, wave);
             timeFreezeBanner.rectTransform.localScale = new Vector3(scale, scale, 1f);
         }
@@ -2049,12 +2051,15 @@ namespace TerraTactix.Puzzle
                 return;
             var count = GameBootstrap.Instance.Economy.TimeFreezes;
             var frozen = timeFreezeRemaining > 0f;
-            timeFreezeButton.gameObject.SetActive(playing && !ended && (count > 0 || frozen));
+            var visible = playing && !ended && (count > 0 || frozen);
+            timeFreezeButton.gameObject.SetActive(visible);
+            if (timeFreezeButtonShadow != null)
+                timeFreezeButtonShadow.SetActive(visible);
             timeFreezeButton.interactable = playing && !ended && count > 0 && !frozen;
             if (timeFreezeButtonLabel != null)
                 timeFreezeButtonLabel.text = frozen
-                    ? $"❄ {Mathf.CeilToInt(timeFreezeRemaining)} sn"
-                    : $"❄ {Locale.T("Dondur", "Freeze")} x{count}";
+                    ? $"{Mathf.CeilToInt(timeFreezeRemaining)} sn"
+                    : $"{Locale.T("Dondur", "Freeze")}\nx{count}";
             var pulse = frozen ? 1f + 0.06f * Mathf.Sin(Time.unscaledTime * 7f) : 1f;
             timeFreezeButton.transform.localScale = new Vector3(pulse, pulse, 1f);
         }

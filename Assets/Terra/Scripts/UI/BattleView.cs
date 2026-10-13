@@ -69,9 +69,13 @@ namespace TerraTactix.UI
             island.outlineWidth = 0.12f;
 
             var game = parent.gameObject.AddComponent<PuzzleGameManager>();
-            var freeze = UiFactory.Button(parent, "TimeFreeze", Locale.T("❄ Dondur", "❄ Freeze"), new Color(0.28f, 0.72f, 0.92f), new Vector2(0.585f, 0.918f), new Vector2(0.70f, 0.982f), game.UseTimeFreeze, 16f);
+            var freeze = UiFactory.Button(parent, "TimeFreeze", Locale.T("Dondur", "Freeze"), new Color(0.28f, 0.72f, 0.92f), new Vector2(0.61f, 0.91f), new Vector2(0.66f, 0.99f), game.UseTimeFreeze, 14f);
+            MakeRoundButton(freeze, parent, new Vector2(0.635f, 0.95f), 76f);
+            var freezeShadow = parent.Find("TimeFreezeShadow")?.gameObject;
             freeze.gameObject.SetActive(false);
-            game.ConfigureTimeFreeze(freeze);
+            if (freezeShadow != null)
+                freezeShadow.SetActive(false);
+            game.ConfigureTimeFreeze(freeze, freezeShadow);
             UiFactory.Button(parent, "Pause", Locale.T("Duraklat", "Pause"), new Color(0.16f, 0.22f, 0.34f), new Vector2(0.858f, 0.918f), new Vector2(0.985f, 0.982f), game.Pause, 16f);
 
             var seconds = Mathf.CeilToInt(session.timeLimit);
@@ -117,6 +121,38 @@ namespace TerraTactix.UI
             var val = UiFactory.Label(plate.transform, value, 22f, valueColor, new Vector2(0.38f, 0f), new Vector2(0.96f, 1f), TextAlignmentOptions.MidlineRight);
             val.margin = new Vector4(8f, 0f, 16f, 0f);
             val.fontStyle = FontStyles.Bold;
+        }
+
+        static void MakeRoundButton(UnityEngine.UI.Button button, Transform parent, Vector2 anchor, float size)
+        {
+            if (button == null)
+                return;
+            var rect = (RectTransform)button.transform;
+            rect.anchorMin = anchor;
+            rect.anchorMax = anchor;
+            rect.anchoredPosition = Vector2.zero;
+            rect.sizeDelta = new Vector2(size, size);
+            var image = button.GetComponent<UnityEngine.UI.Image>();
+            image.sprite = UiFactory.Knob;
+            image.type = UnityEngine.UI.Image.Type.Simple;
+
+            var shine = rect.Find("Shine")?.GetComponent<UnityEngine.UI.Image>();
+            if (shine != null)
+            {
+                shine.sprite = UiFactory.Knob;
+                shine.type = UnityEngine.UI.Image.Type.Simple;
+            }
+
+            var shadow = parent.Find(button.gameObject.name + "Shadow") as RectTransform;
+            if (shadow == null)
+                return;
+            shadow.anchorMin = anchor;
+            shadow.anchorMax = anchor;
+            shadow.anchoredPosition = new Vector2(5f, -5f);
+            shadow.sizeDelta = new Vector2(size, size);
+            var shadowImage = shadow.GetComponent<UnityEngine.UI.Image>();
+            shadowImage.sprite = UiFactory.Knob;
+            shadowImage.type = UnityEngine.UI.Image.Type.Simple;
         }
 
         static void Head(Transform parent, string name, Vector2 anchor, float size, Sprite sprite, Color ringColor)
