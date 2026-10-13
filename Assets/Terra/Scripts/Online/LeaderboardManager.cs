@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using TerraTactix.Core;
 using UnityEngine;
 
@@ -10,6 +11,7 @@ namespace TerraTactix.Online
         ILeaderboardService service;
         bool listening;
         Coroutine sync;
+        readonly List<Action<LeaderboardEntry[], bool>> waiting = new List<Action<LeaderboardEntry[], bool>>();
 
         public bool IsLive => service is FirebaseLeaderboardService;
 
@@ -45,27 +47,35 @@ namespace TerraTactix.Online
         {
             if (service is FirebaseLeaderboardService firebase)
             {
+                if (done != null)
+                    waiting.Add(done);
                 if (sync != null)
-                    StopCoroutine(sync);
-                sync = StartCoroutine(Run(firebase, done));
+                    return;
+                sync = StartCoroutine(Run(firebase, false));
                 return;
             }
 
             done?.Invoke(GetTop(), true);
         }
 
-        IEnumerator Run(FirebaseLeaderboardService firebase, Action<LeaderboardEntry[], bool> done)
+        IEnumerator Run(FirebaseLeaderboardService firebase, bool force)
         {
             var fetched = false;
-            yield return firebase.Sync((sent, ok, error) => fetched = ok);
+            yield return firebase.Sync((sent, ok, error) => fetched = ok, force);
             sync = null;
-            done?.Invoke(firebase.GetTop(), fetched);
+            if (waiting.Count == 0)
+                yield break;
+            var callbacks = waiting.ToArray();
+            waiting.Clear();
+            var rows = firebase.GetTop();
+            for (var i = 0; i < callbacks.Length; i++)
+                callbacks[i]?.Invoke(rows, fetched);
         }
 
         void OnBattleFinished()
         {
             if (service is FirebaseLeaderboardService firebase && sync == null)
-                sync = StartCoroutine(Run(firebase, null));
+                sync = StartCoroutine(Run(firebase, true));
         }
 
         public LeaderboardEntry LocalRow()
@@ -77,6 +87,7 @@ namespace TerraTactix.Online
                 playerName = app.Save.Data.player.playerName,
                 score = app.Save.Data.player.totalScore,
                 regions = app.Expeditions.CapturedCount(),
+                countryCode = PlayerCountry.CurrentCode(),
                 isLocal = true,
                 isMock = false
             };

@@ -49,6 +49,12 @@ namespace TerraTactix.Online
     {
         readonly string root;
         LeaderboardEntry[] cache = new LeaderboardEntry[0];
+        bool hasFreshCache;
+        float lastSyncTime = -1000f;
+        string syncedPlayerId = string.Empty;
+        string syncedPlayerName = string.Empty;
+        string syncedCountry = string.Empty;
+        int syncedScore = -1;
 
         public FirebaseLeaderboardService(FirebaseLeaderboardConfig config)
         {
@@ -62,8 +68,14 @@ namespace TerraTactix.Online
             return cache;
         }
 
-        public IEnumerator Sync(Action<bool, bool, string> done)
+        public IEnumerator Sync(Action<bool, bool, string> done, bool force = false)
         {
+            if (!force && hasFreshCache && Time.realtimeSinceStartup - lastSyncTime < 30f && LocalSnapshotMatches())
+            {
+                done?.Invoke(true, true, null);
+                yield break;
+            }
+
             string error = null;
             yield return ReadTop(null, message => error = message);
             if (OwnsFrozenName())
@@ -73,8 +85,36 @@ namespace TerraTactix.Online
             yield return WriteLocal(ok => sent = ok);
             var fetched = false;
             yield return ReadTop(ok => fetched = ok, message => error = message);
+            if (sent && fetched)
+            {
+                hasFreshCache = true;
+                lastSyncTime = Time.realtimeSinceStartup;
+                RememberLocalSnapshot();
+            }
             if (done != null)
                 done(sent, fetched, error);
+        }
+
+        bool LocalSnapshotMatches()
+        {
+            var player = CurrentPlayer();
+            return player != null
+                && player.nameChosen
+                && string.Equals(syncedPlayerId, player.playerId, StringComparison.Ordinal)
+                && string.Equals(syncedPlayerName, player.playerName, StringComparison.Ordinal)
+                && syncedScore == player.totalScore
+                && string.Equals(syncedCountry, PlayerCountry.CurrentCode(), StringComparison.Ordinal);
+        }
+
+        void RememberLocalSnapshot()
+        {
+            var player = CurrentPlayer();
+            if (player == null)
+                return;
+            syncedPlayerId = player.playerId ?? string.Empty;
+            syncedPlayerName = player.playerName ?? string.Empty;
+            syncedScore = player.totalScore;
+            syncedCountry = PlayerCountry.CurrentCode();
         }
 
         bool OwnsFrozenName()
@@ -129,6 +169,7 @@ namespace TerraTactix.Online
             var body = "{\"name\":" + Quote(player.playerName)
                 + ",\"score\":" + score
                 + ",\"regions\":" + regions
+                + ",\"country\":" + Quote(PlayerCountry.CurrentCode())
                 + ",\"updated\":" + DateTimeOffset.UtcNow.ToUnixTimeSeconds() + "}";
             var url = root + "/players/" + player.playerId + ".json";
             using (var request = UnityWebRequest.Put(url, body))
@@ -221,13 +262,14 @@ namespace TerraTactix.Online
                 var body = ReadObject(json, ref i);
                 if (string.IsNullOrEmpty(id) || string.IsNullOrEmpty(body))
                     continue;
-                if (!TryFields(body, out var name, out var score, out var regions))
+                if (!TryFields(body, out var name, out var score, out var regions, out var country))
                     continue;
                 rows.Add(new LeaderboardEntry
                 {
                     playerName = name,
                     score = score,
                     regions = regions,
+                    countryCode = country,
                     isLocal = id == localId,
                     isMock = false
                 });
@@ -245,11 +287,12 @@ namespace TerraTactix.Online
             return rows.ToArray();
         }
 
-        static bool TryFields(string json, out string name, out int score, out int regions)
+        static bool TryFields(string json, out string name, out int score, out int regions, out string country)
         {
             name = ReadNamedString(json, "name");
             score = ReadNamedInt(json, "score");
             regions = ReadNamedInt(json, "regions");
+            country = PlayerCountry.CleanCode(ReadNamedString(json, "country"));
             if (string.IsNullOrEmpty(name))
                 name = "—";
             if (name.Length > PlayerData.MaxNameLength)
