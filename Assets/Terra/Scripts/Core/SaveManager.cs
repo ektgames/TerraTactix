@@ -105,7 +105,6 @@ namespace TerraTactix.Core
             save.economy.maxHearts = balance.startingMaxHearts;
             save.economy.gold = balance.startingGold;
             save.economy.gems = balance.startingGems;
-            save.economy.attackSpeed = balance.startingAttackSpeed;
             save.world.regions = RegionCatalog.CreateInitialProgress();
             save.Sanitize();
             return save;

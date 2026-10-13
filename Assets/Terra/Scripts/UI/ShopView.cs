@@ -104,7 +104,7 @@ namespace TerraTactix.UI
         static string Status()
         {
             var economy = GameBootstrap.Instance.Economy;
-            return $"{Locale.T("Altın", "Gold")} {economy.Gold}   {Locale.T("Can", "Hearts")} {economy.Hearts}/{economy.MaxHearts}   {Locale.T("Hız", "Speed")} {economy.AttackSpeed:0.00}";
+            return $"{Locale.T("Altın", "Gold")} {economy.Gold}   {Locale.T("Can", "Hearts")} {economy.Hearts}/{economy.MaxHearts}   {Locale.T("Dondurucu", "Freezes")} {economy.TimeFreezes}";
         }
     }
 }

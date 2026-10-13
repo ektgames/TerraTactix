@@ -27,8 +27,6 @@ namespace TerraTactix.Core
                 economy.AddGold(500);
             if (GUILayout.Button("+1 can"))
                 economy.AddHearts(1);
-            if (GUILayout.Button(Locale.T("Sefer hızı +", "Expedition speed +")))
-                economy.AddAttackSpeed(GameBootstrap.Instance.Balance.attackSpeedStep);
             if (GUILayout.Button(Locale.T("Açık seferi tamamla", "Complete open expedition")))
                 SkipExpedition();
             if (GUILayout.Button("Kapat"))

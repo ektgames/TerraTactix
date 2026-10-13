@@ -354,7 +354,7 @@ namespace TerraTactix.UI
 
         static void ShowMail(Transform parent)
         {
-            UiFactory.Dialog(parent, Locale.T("Mektup", "Mail"), Locale.T("Kaşif notu: Yeşil Kıyılar ilk seferini bekliyor.\n\nÇark notu: Her gün bir ödül hazır. Altın, can veya kristal gelebilir.", "Explorer note: Green Shores is waiting for its first expedition.\n\nWheel note: One reward is ready each day. It may be gold, a heart, or crystals."), null);
+            UiFactory.Dialog(parent, Locale.T("Mektup", "Mail"), Locale.T("Kaşif notu: Yeşil Kıyılar ilk seferini bekliyor.\n\nÇark notu: Her gün bir ödül hazır. Altın, can, kristal veya süre dondurucu gelebilir.", "Explorer note: Green Shores is waiting for its first expedition.\n\nWheel note: One reward is ready each day. It may be gold, a heart, crystals, or a time freeze."), null);
         }
 
         static void OpenChest(Transform parent)

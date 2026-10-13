@@ -16,7 +16,7 @@ namespace TerraTactix.Economy
         public int Hearts => data.hearts;
         public int MaxHearts => data.maxHearts;
         public int Gems => data.gems;
-        public float AttackSpeed => data.attackSpeed;
+        public int TimeFreezes => data.timeFreezes;
 
         public void Bind(EconomyData economyData)
         {
@@ -83,12 +83,21 @@ namespace TerraTactix.Economy
             Notify();
         }
 
-        public void AddAttackSpeed(float amount)
+        public void AddTimeFreezes(int amount)
         {
-            if (amount <= 0f)
+            if (amount <= 0)
                 return;
-            data.attackSpeed = Mathf.Min(balance.attackSpeedCap, data.attackSpeed + amount);
+            data.timeFreezes += amount;
             Notify();
+        }
+
+        public bool TryConsumeTimeFreeze()
+        {
+            if (data.timeFreezes <= 0)
+                return false;
+            data.timeFreezes--;
+            Notify();
+            return true;
         }
 
         public bool ConsumeHeart()

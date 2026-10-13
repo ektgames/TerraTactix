@@ -71,8 +71,8 @@ namespace TerraTactix.Data
                 economy.gold = 0;
             if (economy.gems < 0)
                 economy.gems = 0;
-            if (economy.attackSpeed <= 0f)
-                economy.attackSpeed = 1f;
+            if (economy.timeFreezes < 0)
+                economy.timeFreezes = 0;
 
             if (string.IsNullOrEmpty(settings.language))
                 settings.language = "tr";
@@ -90,6 +90,23 @@ namespace TerraTactix.Data
             {
                 OpenStarterIsland();
                 version = 2;
+            }
+
+            if (version < 3)
+            {
+                RemoveAttackSpeedUpgrade();
+                version = 3;
+            }
+        }
+
+        void RemoveAttackSpeedUpgrade()
+        {
+            if (shop == null || shop.levels == null)
+                return;
+            for (var i = shop.levels.Count - 1; i >= 0; i--)
+            {
+                if (shop.levels[i] != null && shop.levels[i].productId == "attack-speed")
+                    shop.levels.RemoveAt(i);
             }
         }
 
@@ -161,7 +178,7 @@ namespace TerraTactix.Data
         public int hearts = 5;
         public int maxHearts = 5;
         public int gems;
-        public float attackSpeed = 1f;
+        public int timeFreezes;
     }
 
     [Serializable]

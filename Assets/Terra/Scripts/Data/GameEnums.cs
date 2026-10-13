@@ -15,7 +15,7 @@ namespace TerraTactix.Data
         Hearts = 1,
         Gems = 2,
         MaxHearts = 3,
-        AttackSpeed = 4
+        TimeFreeze = 4
     }
 
     public enum ShopProductKind
@@ -23,6 +23,6 @@ namespace TerraTactix.Data
         Heart = 0,
         HeartPack = 1,
         MaxHearts = 2,
-        AttackSpeed = 3
+        TimeFreeze = 3
     }
 }

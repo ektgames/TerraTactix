@@ -53,8 +53,39 @@ namespace TerraTactix.Puzzle
         TMP_Text burstTitle;
         TMP_Text burstCount;
         TMP_Text burstPlus;
+        Button timeFreezeButton;
+        TMP_Text timeFreezeButtonLabel;
+        Image timeFreezeWash;
+        TMP_Text timeFreezeBanner;
+        float timeFreezeRemaining;
+
+        const float TimeFreezeDuration = 10f;
 
         public float CellScreenWidth => board == null || grid == null ? 48f : board.rect.width * board.lossyScale.x / grid.Width;
+
+        public void ConfigureTimeFreeze(Button button)
+        {
+            timeFreezeButton = button;
+            timeFreezeButtonLabel = button == null ? null : button.GetComponentInChildren<TMP_Text>();
+            RefreshTimeFreezeButton();
+        }
+
+        public void UseTimeFreeze()
+        {
+            if (!CanControl() || timeFreezeRemaining > 0f)
+                return;
+            var economy = GameBootstrap.Instance.Economy;
+            if (economy == null || !economy.TryConsumeTimeFreeze())
+            {
+                RefreshTimeFreezeButton();
+                return;
+            }
+
+            timeFreezeRemaining = TimeFreezeDuration;
+            if (timeFreezeWash != null)
+                timeFreezeWash.gameObject.SetActive(true);
+            RefreshTimeFreezeButton();
+        }
 
         public void Begin(RectTransform boardRect, TMP_Text scoreText, TMP_Text timerText, TMP_Text comboText, RectTransform previewRoot)
         {
@@ -91,6 +122,7 @@ namespace TerraTactix.Puzzle
             timer = new BattleTimer(session.timeLimit);
             BuildCells();
             BuildBurstLayer();
+            BuildTimeFreezeEffect();
             FillBoard();
             playing = true;
             Refresh();
@@ -224,7 +256,16 @@ namespace TerraTactix.Puzzle
 
             // Takas, dusme ve otomatik kurtarma animasyonlari oyuncunun suresini yemez.
             if (!protectingResolution)
-                timer.Tick(Time.deltaTime);
+            {
+                if (timeFreezeRemaining > 0f)
+                {
+                    timeFreezeRemaining = Mathf.Max(0f, timeFreezeRemaining - Time.deltaTime);
+                    if (timeFreezeRemaining <= 0f && timeFreezeWash != null)
+                        timeFreezeWash.gameObject.SetActive(false);
+                }
+                else
+                    timer.Tick(Time.deltaTime);
+            }
             if (timer.Expired)
             {
                 Finish(false, Locale.T("Süre bitti", "Time is up"));
@@ -1499,6 +1540,10 @@ namespace TerraTactix.Puzzle
             ended = true;
             hintOn = false;
             playing = false;
+            timeFreezeRemaining = 0f;
+            if (timeFreezeWash != null)
+                timeFreezeWash.gameObject.SetActive(false);
+            RefreshTimeFreezeButton();
             HideBurst();
             var result = GameBootstrap.Instance.Battles.Complete(won, score == null ? 0 : score.Value);
             Refresh();
@@ -1950,10 +1995,13 @@ namespace TerraTactix.Puzzle
             if (timerLabel != null)
             {
                 var total = Mathf.CeilToInt(timer.Remaining);
-                timerLabel.text = $"{total / 60:00}:{total % 60:00}";
+                var frozen = timeFreezeRemaining > 0f;
+                timerLabel.text = frozen ? $"❄ {total / 60:00}:{total % 60:00}" : $"{total / 60:00}:{total % 60:00}";
                 var warn = timer.Remaining <= 15f;
-                timerLabel.color = warn ? UiTheme.Heart : UiTheme.Ink;
-                var pulse = warn ? 1f + 0.08f * Mathf.Sin(Time.unscaledTime * 8f) : 1f;
+                timerLabel.color = frozen ? new Color(0.55f, 0.92f, 1f) : warn ? UiTheme.Heart : UiTheme.Ink;
+                var pulse = frozen
+                    ? 1f + 0.07f * Mathf.Sin(Time.unscaledTime * 7f)
+                    : warn ? 1f + 0.08f * Mathf.Sin(Time.unscaledTime * 8f) : 1f;
                 timerLabel.rectTransform.localScale = new Vector3(pulse, pulse, 1f);
             }
 
@@ -1965,6 +2013,50 @@ namespace TerraTactix.Puzzle
             }
 
             PaintBurst();
+            PaintTimeFreeze();
+        }
+
+        void BuildTimeFreezeEffect()
+        {
+            if (board == null || timeFreezeWash != null)
+                return;
+            timeFreezeWash = UiFactory.Image(board, "TimeFreezeWash", new Color(0.35f, 0.86f, 1f, 0.12f), false, Vector2.zero, Vector2.one);
+            timeFreezeWash.raycastTarget = false;
+            timeFreezeBanner = UiFactory.Label(timeFreezeWash.transform, string.Empty, 30f, Color.white, new Vector2(0.30f, 0.82f), new Vector2(0.70f, 0.97f));
+            timeFreezeBanner.fontStyle = FontStyles.Bold;
+            timeFreezeBanner.outlineWidth = 0.22f;
+            timeFreezeBanner.outlineColor = new Color32(18, 90, 130, 240);
+            timeFreezeBanner.raycastTarget = false;
+            timeFreezeWash.gameObject.SetActive(false);
+        }
+
+        void PaintTimeFreeze()
+        {
+            RefreshTimeFreezeButton();
+            if (timeFreezeRemaining <= 0f || timeFreezeWash == null || timeFreezeBanner == null)
+                return;
+
+            var wave = 0.5f + 0.5f * Mathf.Sin(Time.unscaledTime * 6f);
+            timeFreezeWash.color = new Color(0.35f, 0.86f, 1f, Mathf.Lerp(0.08f, 0.18f, wave));
+            timeFreezeBanner.text = $"❄ {Locale.T("SÜRE DONDU", "TIME FROZEN")}  {Mathf.CeilToInt(timeFreezeRemaining)}";
+            var scale = Mathf.Lerp(0.98f, 1.06f, wave);
+            timeFreezeBanner.rectTransform.localScale = new Vector3(scale, scale, 1f);
+        }
+
+        void RefreshTimeFreezeButton()
+        {
+            if (timeFreezeButton == null || GameBootstrap.Instance == null || GameBootstrap.Instance.Economy == null)
+                return;
+            var count = GameBootstrap.Instance.Economy.TimeFreezes;
+            var frozen = timeFreezeRemaining > 0f;
+            timeFreezeButton.gameObject.SetActive(playing && !ended && (count > 0 || frozen));
+            timeFreezeButton.interactable = playing && !ended && count > 0 && !frozen;
+            if (timeFreezeButtonLabel != null)
+                timeFreezeButtonLabel.text = frozen
+                    ? $"❄ {Mathf.CeilToInt(timeFreezeRemaining)} sn"
+                    : $"❄ {Locale.T("Dondur", "Freeze")} x{count}";
+            var pulse = frozen ? 1f + 0.06f * Mathf.Sin(Time.unscaledTime * 7f) : 1f;
+            timeFreezeButton.transform.localScale = new Vector3(pulse, pulse, 1f);
         }
 
     }

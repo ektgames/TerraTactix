@@ -22,7 +22,7 @@ namespace TerraTactix.Wheel
         public static readonly WheelSegment[] Segments =
         {
             new WheelSegment { label = "50 Altın", type = RewardType.Gold, amount = 50, color = new Color(0.95f, 0.78f, 0.25f) },
-            new WheelSegment { label = "100 Altın", type = RewardType.Gold, amount = 100, color = new Color(0.98f, 0.62f, 0.25f) },
+            new WheelSegment { label = "1 Dondurucu", type = RewardType.TimeFreeze, amount = 1, color = new Color(0.36f, 0.82f, 0.96f) },
             new WheelSegment { label = "1 Can", type = RewardType.Hearts, amount = 1, color = new Color(0.90f, 0.32f, 0.38f) },
             new WheelSegment { label = "5 Kristal", type = RewardType.Gems, amount = 5, color = new Color(0.58f, 0.40f, 0.95f) },
             new WheelSegment { label = "250 Altın", type = RewardType.Gold, amount = 250, color = new Color(0.35f, 0.75f, 0.45f) },

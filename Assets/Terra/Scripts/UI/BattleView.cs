@@ -62,13 +62,16 @@ namespace TerraTactix.UI
             timerRim.raycastTarget = false;
             timerRim.transform.SetSiblingIndex(timerPlate.transform.GetSiblingIndex());
             var timer = UiFactory.Label(parent, "01:30", 32f, UiTheme.Ink, new Vector2(0.41f, 0.918f), new Vector2(0.57f, 0.978f));
-            var island = UiFactory.Label(parent, regionName, 24f, UiTheme.Ink, new Vector2(0.58f, 0.91f), new Vector2(0.845f, 0.985f), TextAlignmentOptions.Right);
+            var island = UiFactory.Label(parent, regionName, 22f, UiTheme.Ink, new Vector2(0.71f, 0.91f), new Vector2(0.845f, 0.985f), TextAlignmentOptions.Right);
             island.fontStyle = FontStyles.Bold;
             island.textWrappingMode = TextWrappingModes.NoWrap;
             island.overflowMode = TextOverflowModes.Ellipsis;
             island.outlineWidth = 0.12f;
 
             var game = parent.gameObject.AddComponent<PuzzleGameManager>();
+            var freeze = UiFactory.Button(parent, "TimeFreeze", Locale.T("❄ Dondur", "❄ Freeze"), new Color(0.28f, 0.72f, 0.92f), new Vector2(0.585f, 0.918f), new Vector2(0.70f, 0.982f), game.UseTimeFreeze, 16f);
+            freeze.gameObject.SetActive(false);
+            game.ConfigureTimeFreeze(freeze);
             UiFactory.Button(parent, "Pause", Locale.T("Duraklat", "Pause"), new Color(0.16f, 0.22f, 0.34f), new Vector2(0.858f, 0.918f), new Vector2(0.985f, 0.982f), game.Pause, 16f);
 
             var seconds = Mathf.CeilToInt(session.timeLimit);

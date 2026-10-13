@@ -214,7 +214,7 @@ namespace TerraTactix.Core
                 case "heart": return "+1 Heart";
                 case "heart-pack": return "Heart Pack";
                 case "max-hearts": return "Heart Capacity";
-                case "attack-speed": return "Expedition Speed";
+                case "time-freeze": return "Time Freeze";
                 default: return fallback;
             }
         }
@@ -229,7 +229,7 @@ namespace TerraTactix.Core
                 case "heart": return "Adds one heart, up to the cap.";
                 case "heart-pack": return "Adds five hearts, up to the cap.";
                 case "max-hearts": return "Raises the heart cap by 1.";
-                case "attack-speed": return "Raises battle speed a little.";
+                case "time-freeze": return "Freezes the battle timer for 10 seconds.";
                 default: return fallback;
             }
         }
@@ -239,7 +239,7 @@ namespace TerraTactix.Core
             if (!English || string.IsNullOrEmpty(label))
                 return label;
 
-            return label.Replace("Altın", "Gold").Replace("Kristal", "Crystals").Replace("Can", "Heart");
+            return label.Replace("Altın", "Gold").Replace("Kristal", "Crystals").Replace("Can", "Heart").Replace("Dondurucu", "Freeze");
         }
 
         static string Word(string turkish)

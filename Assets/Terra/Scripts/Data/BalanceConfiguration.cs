@@ -9,9 +9,6 @@ namespace TerraTactix.Data
         public int startingMaxHearts = 5;
         public int startingGold;
         public int startingGems;
-        public float startingAttackSpeed = 1f;
-        public float attackSpeedCap = 1.5f;
-        public float attackSpeedStep = 0.05f;
         public int heartCost = 1;
         public int defaultTargetScore = 1000;
         public float defaultTimeLimit = 90f;
@@ -84,13 +81,13 @@ namespace TerraTactix.Data
             },
             new ShopProductConfig
             {
-                id = "attack-speed",
-                title = "Sefer Hızı",
-                description = "Savaş hızını biraz artırır.",
+                id = "time-freeze",
+                title = "Süre Dondurucu",
+                description = "Bir adet verir. Savaşta süreyi 10 saniye dondurur.",
                 price = 300,
                 amount = 1,
-                maxLevel = 10,
-                kind = ShopProductKind.AttackSpeed
+                maxLevel = 0,
+                kind = ShopProductKind.TimeFreeze
             }
         };
 

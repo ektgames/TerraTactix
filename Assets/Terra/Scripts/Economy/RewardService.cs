@@ -37,8 +37,8 @@ namespace TerraTactix.Economy
                 case RewardType.MaxHearts:
                     economy.AddMaxHearts(amount);
                     break;
-                case RewardType.AttackSpeed:
-                    economy.AddAttackSpeed(floatAmount);
+                case RewardType.TimeFreeze:
+                    economy.AddTimeFreezes(amount);
                     break;
                 default:
                     Debug.LogError($"RewardService: bilinmeyen ödül tipi {type}.");

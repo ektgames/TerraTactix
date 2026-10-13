@@ -61,9 +61,7 @@ namespace TerraTactix.Economy
                 ? $"shop:{product.id}:level:{level + 1}"
                 : $"shop:{product.id}:{System.Guid.NewGuid():N}";
 
-            var applied = product.kind == ShopProductKind.AttackSpeed
-                ? app.Rewards.TryApply(transactionId, RewardType.AttackSpeed, 0, app.Balance.attackSpeedStep)
-                : app.Rewards.TryApply(transactionId, RewardFor(product.kind), product.amount);
+            var applied = app.Rewards.TryApply(transactionId, RewardFor(product.kind), product.amount);
 
             if (!applied)
             {
@@ -90,6 +88,8 @@ namespace TerraTactix.Economy
                 case ShopProductKind.Heart:
                 case ShopProductKind.HeartPack:
                     return RewardType.Hearts;
+                case ShopProductKind.TimeFreeze:
+                    return RewardType.TimeFreeze;
                 default:
                     return RewardType.Gold;
             }
